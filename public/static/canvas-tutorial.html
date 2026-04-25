@@ -1,0 +1,1118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>HTML Canvas — A Visual Tour</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d1117;
+    --ink: #e6edf3;
+    --paper: #161b22;
+    --accent: #ff6b35;
+    --accent-2: #4ec9b0;
+    --accent-3: #ffd166;
+    --accent-4: #6dafff;
+    --dim: #7a8290;
+    --line: #30363d;
+    --grid: #1a2028;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Fraunces', serif;
+    background-image:
+      radial-gradient(circle at 15% 5%, rgba(255,107,53,0.08) 0%, transparent 35%),
+      radial-gradient(circle at 85% 95%, rgba(78,201,176,0.06) 0%, transparent 35%);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  .wrap { max-width: 1200px; margin: 0 auto; padding: 32px 28px 60px; }
+
+  header {
+    display: flex; justify-content: space-between; align-items: end;
+    border-bottom: 1px solid var(--line); padding-bottom: 18px; margin-bottom: 24px;
+    flex-wrap: wrap; gap: 12px;
+  }
+  .masthead h1 {
+    font-weight: 800; font-size: clamp(36px, 6vw, 64px);
+    letter-spacing: -0.03em; line-height: 0.9;
+    font-variation-settings: "opsz" 144;
+  }
+  .masthead h1 em { color: var(--accent); font-style: italic; }
+  .masthead .sub {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    text-transform: uppercase; letter-spacing: 0.2em;
+    color: var(--dim); margin-top: 6px;
+  }
+  .meta {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    text-align: right; color: var(--dim);
+    text-transform: uppercase; letter-spacing: 0.15em;
+  }
+  .meta .step-num {
+    display: block; font-size: 28px; color: var(--ink);
+    font-weight: 600; letter-spacing: -0.02em;
+  }
+
+  .tabs {
+    display: flex; gap: 0; border-bottom: 1px solid var(--line);
+    margin-bottom: 24px; flex-wrap: wrap;
+  }
+  .tab {
+    background: none; border: none;
+    font-family: 'Fraunces', serif; font-size: 16px; font-weight: 600;
+    padding: 12px 18px; cursor: pointer; color: var(--dim);
+    border-bottom: 3px solid transparent; margin-bottom: -1px;
+    transition: all 0.2s ease;
+    font-style: italic;
+  }
+  .tab:hover { color: var(--ink); }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .tab .num {
+    font-family: 'JetBrains Mono', monospace; font-size: 10px;
+    color: var(--dim); margin-right: 6px; font-style: normal;
+  }
+  .tab.active .num { color: var(--accent); }
+
+  .stage {
+    display: grid; gap: 24px;
+    margin-bottom: 24px;
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "caption"
+      "code"
+      "canvas";
+  }
+  .stage > .caption { grid-area: caption; margin-bottom: 0; }
+  .stage > .panel-code { grid-area: code; }
+  .stage > .panel-canvas { grid-area: canvas; }
+
+  @media (min-width: 720px) {
+    .stage {
+      grid-template-columns: 1fr 1fr;
+      grid-template-areas:
+        "caption caption"
+        "code    canvas";
+    }
+  }
+  @media (min-width: 1100px) {
+    .stage {
+      grid-template-columns: minmax(220px, 1fr) minmax(0, 1.4fr) minmax(0, 1.2fr);
+      grid-template-areas: "caption code canvas";
+      align-items: stretch;
+    }
+    .stage > .caption { align-self: stretch; display: flex; align-items: center; }
+  }
+
+  .panel {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    padding: 22px;
+    position: relative;
+    min-height: 380px;
+  }
+  .panel-label {
+    font-family: 'JetBrains Mono', monospace; font-size: 10px;
+    text-transform: uppercase; letter-spacing: 0.2em;
+    color: var(--dim); margin-bottom: 14px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .panel-label::before {
+    content: ''; width: 6px; height: 6px; background: var(--accent);
+    display: inline-block; border-radius: 50%;
+  }
+
+  .code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px; line-height: 1.75;
+    white-space: pre-wrap; word-break: break-word;
+  }
+  .code .kw { color: #ff7b72; font-weight: 600; }
+  .code .str { color: #a5d6ff; }
+  .code .num { color: #79c0ff; }
+  .code .com { color: var(--dim); font-style: italic; }
+  .code .name { color: var(--ink); }
+  .code .punct { color: #8b949e; }
+  .code .prop { color: var(--accent-3); }
+  .code .global { color: var(--accent-2); font-weight: 600; }
+  .code .line {
+    display: block; padding: 2px 8px; margin: 0 -8px;
+    border-radius: 2px; transition: background 0.3s;
+  }
+  .code .line.hot {
+    background: rgba(255,107,53,0.15);
+    box-shadow: -3px 0 0 var(--accent);
+  }
+
+  .canvas-stage {
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; gap: 12px;
+    min-height: 320px;
+  }
+  .canvas-frame {
+    background: white;
+    border: 1px solid var(--line);
+    box-shadow: 0 0 0 4px rgba(255,107,53,0.08), 4px 4px 16px rgba(0,0,0,0.4);
+    position: relative;
+    background-image:
+      linear-gradient(to right, rgba(0,0,0,0.04) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(0,0,0,0.04) 1px, transparent 1px);
+    background-size: 20px 20px;
+  }
+  canvas { display: block; }
+  .canvas-info {
+    font-family: 'JetBrains Mono', monospace; font-size: 10px;
+    color: var(--dim); text-transform: uppercase; letter-spacing: 0.15em;
+  }
+  .canvas-info .dim { color: var(--accent); }
+
+  .caption {
+    background: var(--paper); border: 1px solid var(--line);
+    padding: 18px 22px; font-size: 17px; line-height: 1.5;
+    border-left: 4px solid var(--accent);
+    margin-bottom: 18px; min-height: 70px;
+    position: relative;
+  }
+  .caption::before {
+    content: '▸';
+    color: var(--accent); margin-right: 10px; font-weight: bold;
+  }
+
+  .controls {
+    display: flex; gap: 10px; align-items: center;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+  }
+  .btn {
+    font-family: 'JetBrains Mono', monospace; font-size: 12px;
+    text-transform: uppercase; letter-spacing: 0.12em;
+    padding: 12px 20px; cursor: pointer;
+    background: var(--paper); border: 1px solid var(--line);
+    color: var(--ink); transition: all 0.15s;
+    font-weight: 600;
+  }
+  .btn:hover:not(:disabled) {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .btn:disabled { opacity: 0.3; cursor: not-allowed; }
+  .btn.primary { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+  .btn.primary:hover:not(:disabled) { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+  .btn .kbd {
+    display: inline-block; margin-left: 6px; opacity: 0.55;
+    font-size: 9px; letter-spacing: 0;
+  }
+  .progress {
+    flex: 1; min-width: 160px; height: 3px;
+    background: rgba(255,255,255,0.06);
+    position: relative;
+  }
+  .progress-bar {
+    height: 100%; background: var(--accent);
+    transition: width 0.3s ease;
+  }
+  .step-counter {
+    font-family: 'JetBrains Mono', monospace; font-size: 12px;
+    color: var(--dim); white-space: nowrap;
+  }
+
+  /* Coordinate overlay */
+  .coord-overlay {
+    position: absolute; top: 0; left: 0;
+    pointer-events: none;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--accent);
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="masthead">
+      <h1>The <em>Canvas</em></h1>
+      <div class="sub">Drawing with code — pixel by pixel</div>
+    </div>
+    <div class="meta">
+      <span>Chapter</span>
+      <span class="step-num" id="chapterNum">01</span>
+      <span id="chapterName">The Setup</span>
+    </div>
+  </header>
+
+  <nav class="tabs" id="tabs">
+    <button class="tab active" data-tab="0"><span class="num">01</span>Setup</button>
+    <button class="tab" data-tab="1"><span class="num">02</span>Shapes</button>
+    <button class="tab" data-tab="2"><span class="num">03</span>Paths</button>
+    <button class="tab" data-tab="3"><span class="num">04</span>Style</button>
+    <button class="tab" data-tab="4"><span class="num">05</span>Text & Image</button>
+    <button class="tab" data-tab="5"><span class="num">06</span>Animation</button>
+  </nav>
+
+  <div class="controls">
+    <button class="btn" id="prevBtn">← Prev <span class="kbd">←</span></button>
+    <button class="btn primary" id="nextBtn">Next → <span class="kbd">→</span></button>
+    <button class="btn" id="resetBtn">Reset <span class="kbd">R</span></button>
+    <div class="progress"><div class="progress-bar" id="progressBar"></div></div>
+    <div class="step-counter" id="stepCounter">01 / 05</div>
+  </div>
+
+  <div class="stage">
+    <div class="caption" id="caption">A canvas is a blank rectangle of pixels you draw on with JavaScript.</div>
+    <div class="panel panel-code">
+      <div class="panel-label">Code</div>
+      <div class="code" id="codePanel"></div>
+    </div>
+    <div class="panel panel-canvas">
+      <div class="panel-label">Result</div>
+      <div class="canvas-stage">
+        <div class="canvas-frame" id="canvasFrame">
+          <canvas id="cv" width="320" height="240"></canvas>
+        </div>
+        <div class="canvas-info">canvas · <span class="dim" id="dims">320 × 240</span> px</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============== HELPERS for drawing ==============
+function clear(ctx) {
+  ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+}
+
+function drawAxes(ctx) {
+  // Subtle origin marker
+  ctx.save();
+  ctx.fillStyle = '#ff6b35';
+  ctx.fillRect(0, 0, 6, 6);
+  ctx.font = 'bold 10px JetBrains Mono, monospace';
+  ctx.fillStyle = '#ff6b35';
+  ctx.fillText('(0,0)', 8, 14);
+
+  // Arrow indicators
+  ctx.strokeStyle = 'rgba(255,107,53,0.4)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(0, 0); ctx.lineTo(60, 0);
+  ctx.moveTo(0, 0); ctx.lineTo(0, 60);
+  ctx.stroke();
+  // arrow tips
+  ctx.fillStyle = 'rgba(255,107,53,0.6)';
+  ctx.beginPath(); ctx.moveTo(60,0); ctx.lineTo(54,-3); ctx.lineTo(54,3); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(0,60); ctx.lineTo(-3,54); ctx.lineTo(3,54); ctx.fill();
+
+  ctx.font = '9px JetBrains Mono, monospace';
+  ctx.fillStyle = 'rgba(255,107,53,0.7)';
+  ctx.fillText('+x', 64, 4);
+  ctx.fillText('+y', 4, 70);
+  ctx.restore();
+}
+
+// ============== STEPS ==============
+// Each step: { caption, code (tokens), codeHot (line idx array), draw(ctx) }
+const chapters = [
+  // ------- 01 SETUP -------
+  {
+    name: "The Setup",
+    steps: [
+      {
+        caption: "Start with an empty <canvas> element. It's just a rectangle of pixels with a width and height.",
+        code: [
+          {t:'punct', s:'<'}, {t:'kw', s:'canvas '}, {t:'prop', s:'id'}, {t:'punct', s:'='}, {t:'str', s:'"cv"'}, {t:'punct', s:' '},
+          {t:'prop', s:'width'}, {t:'punct', s:'='}, {t:'str', s:'"320"'}, {t:'punct', s:' '},
+          {t:'prop', s:'height'}, {t:'punct', s:'='}, {t:'str', s:'"240"'}, {t:'punct', s:'></'}, {t:'kw', s:'canvas'}, {t:'punct', s:'>'}
+        ],
+        codeHot: [0],
+        draw: (ctx) => { clear(ctx); }
+      },
+      {
+        caption: "Grab the canvas in JS, then ask for its 2D drawing context. The context is what holds all the drawing methods.",
+        code: [
+          {t:'kw', s:'const '}, {t:'name', s:'canvas'}, {t:'punct', s:' = '}, {t:'global', s:'document'}, {t:'punct', s:'.'}, {t:'prop', s:'getElementById'}, {t:'punct', s:'('}, {t:'str', s:'"cv"'}, {t:'punct', s:');'},
+          {t:'kw', s:'const '}, {t:'name', s:'ctx'}, {t:'punct', s:' = '}, {t:'name', s:'canvas'}, {t:'punct', s:'.'}, {t:'prop', s:'getContext'}, {t:'punct', s:'('}, {t:'str', s:'"2d"'}, {t:'punct', s:');'}
+        ],
+        codeHot: [1],
+        draw: (ctx) => { clear(ctx); }
+      },
+      {
+        caption: "Coordinates start at (0,0) in the TOP-LEFT corner. X grows right, Y grows DOWN — the opposite of math class.",
+        code: [
+          {t:'com', s:'// (0,0) is top-left'},
+          {t:'com', s:'// x →   right'},
+          {t:'com', s:'// y →   down'},
+          {t:'com', s:'// (319, 239) is bottom-right'}
+        ],
+        codeHot: [0,1,2],
+        draw: (ctx) => { clear(ctx); drawAxes(ctx); }
+      },
+      {
+        caption: "Let's draw your first shape — a filled rectangle. Set fillStyle, then call fillRect(x, y, width, height).",
+        code: [
+          {t:'name', s:'ctx'}, {t:'punct', s:'.'}, {t:'prop', s:'fillStyle'}, {t:'punct', s:' = '}, {t:'str', s:'"#ff6b35"'}, {t:'punct', s:';'},
+          {t:'name', s:'ctx'}, {t:'punct', s:'.'}, {t:'prop', s:'fillRect'}, {t:'punct', s:'('}, {t:'num', s:'40'}, {t:'punct', s:', '}, {t:'num', s:'60'}, {t:'punct', s:', '}, {t:'num', s:'120'}, {t:'punct', s:', '}, {t:'num', s:'80'}, {t:'punct', s:');'}
+        ],
+        codeHot: [1],
+        draw: (ctx) => {
+          clear(ctx);
+          drawAxes(ctx);
+          ctx.fillStyle = '#ff6b35';
+          ctx.fillRect(40, 60, 120, 80);
+          // annotate
+          ctx.strokeStyle = 'rgba(0,0,0,0.4)';
+          ctx.setLineDash([2,2]);
+          ctx.strokeRect(40, 60, 120, 80);
+          ctx.setLineDash([]);
+          ctx.fillStyle = 'rgba(0,0,0,0.7)';
+          ctx.font = '10px JetBrains Mono, monospace';
+          ctx.fillText('(40, 60)', 44, 56);
+          ctx.fillText('w: 120  h: 80', 44, 78);
+        }
+      }
+    ]
+  },
+  // ------- 02 SHAPES -------
+  {
+    name: "Shapes",
+    steps: [
+      {
+        caption: "fillRect draws a solid rectangle. The four numbers are: x, y, width, height.",
+        code: [
+          {t:'name', s:'ctx'}, {t:'punct', s:'.'}, {t:'prop', s:'fillStyle'}, {t:'punct', s:' = '}, {t:'str', s:'"#4ec9b0"'}, {t:'punct', s:';'},
+          {t:'name', s:'ctx'}, {t:'punct', s:'.'}, {t:'prop', s:'fillRect'}, {t:'punct', s:'('}, {t:'num', s:'30'}, {t:'punct', s:', '}, {t:'num', s:'50'}, {t:'punct', s:', '}, {t:'num', s:'120'}, {t:'punct', s:', '}, {t:'num', s:'80'}, {t:'punct', s:');'}
+        ],
+        codeHot: [1],
+        draw: (ctx) => {
+          clear(ctx);
+          ctx.fillStyle = '#4ec9b0';
+          ctx.fillRect(30, 50, 120, 80);
+        }
+      },
+      {
+        caption: "strokeRect draws an outline only. Use lineWidth to control thickness, strokeStyle for color.",
+        code: [
+          {t:'name', s:'ctx'}, {t:'punct', s:'.'}, {t:'prop', s:'strokeStyle'}, {t:'punct', s:' = '}, {t:'str', s:'"#ff6b35"'}, {t:'punct', s:';'},
+          {t:'name', s:'ctx'}, {t:'punct', s:'.'}, {t:'prop', s:'lineWidth'}, {t:'punct', s:' = '}, {t:'num', s:'4'}, {t:'punct', s:';'},
+          {t:'name', s:'ctx'}, {t:'punct', s:'.'}, {t:'prop', s:'strokeRect'}, {t:'punct', s:'('}, {t:'num', s:'170'}, {t:'punct', s:', '}, {t:'num', s:'50'}, {t:'punct', s:', '}, {t:'num', s:'120'}, {t:'punct', s:', '}, {t:'num', s:'80'}, {t:'punct', s:');'}
+        ],
+        codeHot: [2],
+        draw: (ctx) => {
+          clear(ctx);
+          ctx.fillStyle = '#4ec9b0';
+          ctx.fillRect(30, 50, 120, 80);
+          ctx.strokeStyle = '#ff6b35';
+          ctx.lineWidth = 4;
+          ctx.strokeRect(170, 50, 120, 80);
+        }
+      },
+      {
+        caption: "clearRect erases pixels in a rectangle, making them transparent again. Useful for animation frames.",
+        code: [
+          {t:'com', s:'// clear a hole through the middle'},
+          {t:'name', s:'ctx'}, {t:'punct', s:'.'}, {t:'prop', s:'clearRect'}, {t:'punct', s:'('}, {t:'num', s:'80'}, {t:'punct', s:', '}, {t:'num', s:'80'}, {t:'punct', s:', '}, {t:'num', s:'160'}, {t:'punct', s:', '}, {t:'num', s:'40'}, {t:'punct', s:');'}
+        ],
+        codeHot: [1],
+        draw: (ctx) => {
+          clear(ctx);
+          ctx.fillStyle = '#4ec9b0';
+          ctx.fillRect(30, 50, 260, 120);
+          ctx.clearRect(80, 80, 160, 40);
+          // dotted indicator
+          ctx.strokeStyle = '#ff6b35';
+          ctx.setLineDash([4,3]);
+          ctx.lineWidth = 1;
+          ctx.strokeRect(80, 80, 160, 40);
+          ctx.setLineDash([]);
+        }
+      },
+      {
+        caption: "Drawing order matters — the canvas works like wet paint. Each new shape covers what's underneath it.",
+        code: [
+          {t:'name', s:'ctx'}, {t:'punct', s:'.'}, {t:'prop', s:'fillStyle'}, {t:'punct', s:' = '}, {t:'str', s:'"#ffd166"'}, {t:'punct', s:';'},
+          {t:'name', s:'ctx'}, {t:'punct', s:'.'}, {t:'prop', s:'fillRect'}, {t:'punct', s:'('}, {t:'num', s:'50'}, {t:'punct', s:', '}, {t:'num', s:'50'}, {t:'punct', s:', '}, {t:'num', s:'140'}, {t:'punct', s:', '}, {t:'num', s:'100'}, {t:'punct', s:');'},
+          {t:'name', s:'ctx'}, {t:'punct', s:'.'}, {t:'prop', s:'fillStyle'}, {t:'punct', s:' = '}, {t:'str', s:'"#ff6b35"'}, {t:'punct', s:';'},
+          {t:'name', s:'ctx'}, {t:'punct', s:'.'}, {t:'prop', s:'fillRect'}, {t:'punct', s:'('}, {t:'num', s:'100'}, {t:'punct', s:', '}, {t:'num', s:'90'}, {t:'punct', s:', '}, {t:'num', s:'140'}, {t:'punct', s:', '}, {t:'num', s:'100'}, {t:'punct', s:');'},
+          {t:'name', s:'ctx'}, {t:'punct', s:'.'}, {t:'prop', s:'fillStyle'}, {t:'punct', s:' = '}, {t:'str', s:'"#6dafff"'}, {t:'punct', s:';'},
+          {t:'name', s:'ctx'}, {t:'punct', s:'.'}, {t:'prop', s:'fillRect'}, {t:'punct', s:'('}, {t:'num', s:'150'}, {t:'punct', s:', '}, {t:'num', s:'130'}, {t:'punct', s:', '}, {t:'num', s:'140'}, {t:'punct', s:', '}, {t:'num', s:'80'}, {t:'punct', s:');'}
+        ],
+        codeHot: [3,5],
+        draw: (ctx) => {
+          clear(ctx);
+          ctx.fillStyle = '#ffd166';
+          ctx.fillRect(50, 50, 140, 100);
+          ctx.fillStyle = '#ff6b35';
+          ctx.fillRect(100, 90, 140, 100);
+          ctx.fillStyle = '#6dafff';
+          ctx.fillRect(150, 130, 140, 80);
+        }
+      }
+    ]
+  },
+  // ------- 03 PATHS -------
+  {
+    name: "Paths",
+    steps: [
+      {
+        caption: "For anything more complex than a rectangle, you build a PATH. It's like an invisible pen — you tell it where to move.",
+        code: [
+          {t:'name', s:'ctx'}, {t:'punct', s:'.'}, {t:'prop', s:'beginPath'}, {t:'punct', s:'();      '}, {t:'com', s:'// start a new path'},
+          {t:'name', s:'ctx'}, {t:'punct', s:'.'}, {t:'prop', s:'moveTo'}, {t:'punct', s:'('}, {t:'num', s:'40'}, {t:'punct', s:', '}, {t:'num', s:'180'}, {t:'punct', s:');'}, {t:'com', s:'    // pen up, jump'},
+          {t:'name', s:'ctx'}, {t:'punct', s:'.'}, {t:'prop', s:'lineTo'}, {t:'punct', s:'('}, {t:'num', s:'160'}, {t:'punct', s:', '}, {t:'num', s:'40'}, {t:'punct', s:');'}, {t:'com', s:'    // pen down, draw'},
+          {t:'name', s:'ctx'}, {t:'punct', s:'.'}, {t:'prop', s:'lineTo'}, {t:'punct', s:'('}, {t:'num', s:'280'}, {t:'punct', s:', '}, {t:'num', s:'180'}, {t:'punct', s:');'},
+          {t:'name', s:'ctx'}, {t:'punct', s:'.'}, {t:'prop', s:'stroke'}, {t:'punct', s:'();        '}, {t:'com', s:'// actually draw the lines'}
+        ],
+        codeHot: [0,1,2,3,4],
+        draw: (ctx) => {
+          clear(ctx);
+          ctx.strokeStyle = '#ff6b35';
+          ctx.lineWidth = 3;
+          ctx.lineJoin = 'round';
+          ctx.beginPath();
+          ctx.moveTo(40, 180);
+          ctx.lineTo(160, 40);
+          ctx.lineTo(280, 180);
+          ctx.stroke();
+          // mark points
+          [[40,180],[160,40],[280,180]].forEach(([x,y]) => {
+            ctx.fillStyle = '#161b22';
+            ctx.beginPath(); ctx.arc(x,y,4,0,Math.PI*2); ctx.fill();
+          });
+        }
+      },
+      {
+        caption: "closePath connects the last point back to where you started. fill paints the inside.",
+        code: [
+          {t:'name', s:'ctx'}, {t:'punct', s:'.'}, {t:'prop', s:'beginPath'}, {t:'punct', s:'();'},
+          {t:'name', s:'ctx'}, {t:'punct', s:'.'}, {t:'prop', s:'moveTo'}, {t:'punct', s:'('}, {t:'num', s:'160'}, {t:'punct', s:', '}, {t:'num', s:'40'}, {t:'punct', s:');'},
+          {t:'name', s:'ctx'}, {t:'punct', s:'.'}, {t:'prop', s:'lineTo'}, {t:'punct', s:'('}, {t:'num', s:'280'}, {t:'punct', s:', '}, {t:'num', s:'180'}, {t:'punct', s:');'},
+          {t:'name', s:'ctx'}, {t:'punct', s:'.'}, {t:'prop', s:'lineTo'}, {t:'punct', s:'('}, {t:'num', s:'40'}, {t:'punct', s:', '}, {t:'num', s:'180'}, {t:'punct', s:');'},
+          {t:'name', s:'ctx'}, {t:'punct', s:'.'}, {t:'prop', s:'closePath'}, {t:'punct', s:'();'},
+          {t:'name', s:'ctx'}, {t:'punct', s:'.'}, {t:'prop', s:'fillStyle'}, {t:'punct', s:' = '}, {t:'str', s:'"#ffd166"'}, {t:'punct', s:';'},
+          {t:'name', s:'ctx'}, {t:'punct', s:'.'}, {t:'prop', s:'fill'}, {t:'punct', s:'();'}
+        ],
+        codeHot: [4,6],
+        draw: (ctx) => {
+          clear(ctx);
+          ctx.beginPath();
+          ctx.moveTo(160, 40);
+          ctx.lineTo(280, 180);
+          ctx.lineTo(40, 180);
+          ctx.closePath();
+          ctx.fillStyle = '#ffd166';
+          ctx.fill();
+          ctx.strokeStyle = '#ff6b35';
+          ctx.lineWidth = 2;
+          ctx.stroke();
+        }
+      },
+      {
+        caption: "arc(x, y, radius, startAngle, endAngle) draws a circle or arc. Angles are in radians: 2π = full circle.",
+        code: [
+          {t:'name', s:'ctx'}, {t:'punct', s:'.'}, {t:'prop', s:'beginPath'}, {t:'punct', s:'();'},
+          {t:'name', s:'ctx'}, {t:'punct', s:'.'}, {t:'prop', s:'arc'}, {t:'punct', s:'('}, {t:'num', s:'160'}, {t:'punct', s:', '}, {t:'num', s:'120'}, {t:'punct', s:', '}, {t:'num', s:'70'}, {t:'punct', s:', '}, {t:'num', s:'0'}, {t:'punct', s:', '},
+          {t:'global', s:'Math'}, {t:'punct', s:'.'}, {t:'prop', s:'PI'}, {t:'punct', s:' * '}, {t:'num', s:'2'}, {t:'punct', s:');'},
+          {t:'name', s:'ctx'}, {t:'punct', s:'.'}, {t:'prop', s:'fillStyle'}, {t:'punct', s:' = '}, {t:'str', s:'"#ff6b35"'}, {t:'punct', s:';'},
+          {t:'name', s:'ctx'}, {t:'punct', s:'.'}, {t:'prop', s:'fill'}, {t:'punct', s:'();'}
+        ],
+        codeHot: [1],
+        draw: (ctx) => {
+          clear(ctx);
+          ctx.beginPath();
+          ctx.arc(160, 120, 70, 0, Math.PI * 2);
+          ctx.fillStyle = '#ff6b35';
+          ctx.fill();
+          // center marker
+          ctx.fillStyle = 'rgba(0,0,0,0.4)';
+          ctx.beginPath(); ctx.arc(160,120,2,0,Math.PI*2); ctx.fill();
+          ctx.strokeStyle = 'rgba(0,0,0,0.4)';
+          ctx.setLineDash([2,2]);
+          ctx.beginPath(); ctx.moveTo(160,120); ctx.lineTo(230,120); ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.font = '10px JetBrains Mono, monospace';
+          ctx.fillStyle = 'rgba(0,0,0,0.6)';
+          ctx.fillText('r=70', 188, 116);
+        }
+      },
+      {
+        caption: "Use a partial arc to make pie slices. The angles 0 to π/2 give you a quarter circle.",
+        code: [
+          {t:'name', s:'ctx'}, {t:'punct', s:'.'}, {t:'prop', s:'beginPath'}, {t:'punct', s:'();'},
+          {t:'name', s:'ctx'}, {t:'punct', s:'.'}, {t:'prop', s:'moveTo'}, {t:'punct', s:'('}, {t:'num', s:'160'}, {t:'punct', s:', '}, {t:'num', s:'120'}, {t:'punct', s:');'},
+          {t:'name', s:'ctx'}, {t:'punct', s:'.'}, {t:'prop', s:'arc'}, {t:'punct', s:'('}, {t:'num', s:'160'}, {t:'punct', s:', '}, {t:'num', s:'120'}, {t:'punct', s:', '}, {t:'num', s:'80'}, {t:'punct', s:', '}, {t:'num', s:'0'}, {t:'punct', s:', '},
+          {t:'global', s:'Math'}, {t:'punct', s:'.'}, {t:'prop', s:'PI'}, {t:'punct', s:' / '}, {t:'num', s:'2'}, {t:'punct', s:');'},
+          {t:'name', s:'ctx'}, {t:'punct', s:'.'}, {t:'prop', s:'closePath'}, {t:'punct', s:'();'},
+          {t:'name', s:'ctx'}, {t:'punct', s:'.'}, {t:'prop', s:'fill'}, {t:'punct', s:'();'}
+        ],
+        codeHot: [2],
+        draw: (ctx) => {
+          clear(ctx);
+          // dim full circle outline
+          ctx.strokeStyle = 'rgba(0,0,0,0.15)';
+          ctx.setLineDash([3,3]);
+          ctx.beginPath();
+          ctx.arc(160, 120, 80, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.setLineDash([]);
+          // pie slice
+          ctx.beginPath();
+          ctx.moveTo(160, 120);
+          ctx.arc(160, 120, 80, 0, Math.PI / 2);
+          ctx.closePath();
+          ctx.fillStyle = '#4ec9b0';
+          ctx.fill();
+        }
+      },
+      {
+        caption: "Combine moveTo, lineTo, and arc to draw any shape you can imagine. Here's a simple house.",
+        code: [
+          {t:'com', s:'// walls'},
+          {t:'name', s:'ctx'}, {t:'punct', s:'.'}, {t:'prop', s:'fillRect'}, {t:'punct', s:'('}, {t:'num', s:'90'}, {t:'punct', s:', '}, {t:'num', s:'120'}, {t:'punct', s:', '}, {t:'num', s:'140'}, {t:'punct', s:', '}, {t:'num', s:'90'}, {t:'punct', s:');'},
+          {t:'com', s:'// roof'},
+          {t:'name', s:'ctx'}, {t:'punct', s:'.'}, {t:'prop', s:'beginPath'}, {t:'punct', s:'();'},
+          {t:'name', s:'ctx'}, {t:'punct', s:'.'}, {t:'prop', s:'moveTo'}, {t:'punct', s:'('}, {t:'num', s:'80'}, {t:'punct', s:', '}, {t:'num', s:'120'}, {t:'punct', s:');'},
+          {t:'name', s:'ctx'}, {t:'punct', s:'.'}, {t:'prop', s:'lineTo'}, {t:'punct', s:'('}, {t:'num', s:'160'}, {t:'punct', s:', '}, {t:'num', s:'60'}, {t:'punct', s:');'},
+          {t:'name', s:'ctx'}, {t:'punct', s:'.'}, {t:'prop', s:'lineTo'}, {t:'punct', s:'('}, {t:'num', s:'240'}, {t:'punct', s:', '}, {t:'num', s:'120'}, {t:'punct', s:');'},
+          {t:'name', s:'ctx'}, {t:'punct', s:'.'}, {t:'prop', s:'closePath'}, {t:'punct', s:'(); '}, {t:'name', s:'ctx'}, {t:'punct', s:'.'}, {t:'prop', s:'fill'}, {t:'punct', s:'();'}
+        ],
+        codeHot: [1,3,4,5],
+        draw: (ctx) => {
+          clear(ctx);
+          // walls
+          ctx.fillStyle = '#ffd166';
+          ctx.fillRect(90, 120, 140, 90);
+          // roof
+          ctx.beginPath();
+          ctx.moveTo(80, 120);
+          ctx.lineTo(160, 60);
+          ctx.lineTo(240, 120);
+          ctx.closePath();
+          ctx.fillStyle = '#ff6b35';
+          ctx.fill();
+          // door
+          ctx.fillStyle = '#4ec9b0';
+          ctx.fillRect(140, 160, 40, 50);
+          // window
+          ctx.fillStyle = '#6dafff';
+          ctx.fillRect(105, 140, 25, 25);
+          ctx.fillRect(195, 140, 25, 25);
+        }
+      }
+    ]
+  },
+  // ------- 04 STYLE -------
+  {
+    name: "Style",
+    steps: [
+      {
+        caption: "Colors accept any CSS format: hex, rgb(), rgba(), or named colors like 'tomato' or 'rebeccapurple'.",
+        code: [
+          {t:'name', s:'ctx'}, {t:'punct', s:'.'}, {t:'prop', s:'fillStyle'}, {t:'punct', s:' = '}, {t:'str', s:'"#ff6b35"'}, {t:'punct', s:';      '}, {t:'com', s:'// hex'},
+          {t:'name', s:'ctx'}, {t:'punct', s:'.'}, {t:'prop', s:'fillStyle'}, {t:'punct', s:' = '}, {t:'str', s:'"rgb(78,201,176)"'}, {t:'punct', s:'; '}, {t:'com', s:'// rgb'},
+          {t:'name', s:'ctx'}, {t:'punct', s:'.'}, {t:'prop', s:'fillStyle'}, {t:'punct', s:' = '}, {t:'str', s:'"rgba(0,0,0,0.4)"'}, {t:'punct', s:';  '}, {t:'com', s:'// transparent'}
+        ],
+        codeHot: [0,1,2],
+        draw: (ctx) => {
+          clear(ctx);
+          ctx.fillStyle = '#ff6b35';
+          ctx.fillRect(40, 60, 80, 120);
+          ctx.fillStyle = 'rgb(78,201,176)';
+          ctx.fillRect(120, 60, 80, 120);
+          ctx.fillStyle = 'rgba(0,0,0,0.4)';
+          ctx.fillRect(200, 60, 80, 120);
+          ctx.font = '11px JetBrains Mono, monospace';
+          ctx.fillStyle = 'white';
+          ctx.fillText('hex', 60, 124);
+          ctx.fillText('rgb', 144, 124);
+          ctx.fillText('rgba', 222, 124);
+        }
+      },
+      {
+        caption: "globalAlpha sets opacity for everything drawn after it — from 0 (invisible) to 1 (solid).",
+        code: [
+          {t:'name', s:'ctx'}, {t:'punct', s:'.'}, {t:'prop', s:'fillStyle'}, {t:'punct', s:' = '}, {t:'str', s:'"#ff6b35"'}, {t:'punct', s:';'},
+          {t:'name', s:'ctx'}, {t:'punct', s:'.'}, {t:'prop', s:'globalAlpha'}, {t:'punct', s:' = '}, {t:'num', s:'0.5'}, {t:'punct', s:';'},
+          {t:'name', s:'ctx'}, {t:'punct', s:'.'}, {t:'prop', s:'fillRect'}, {t:'punct', s:'('}, {t:'num', s:'70'}, {t:'punct', s:', '}, {t:'num', s:'40'}, {t:'punct', s:', '}, {t:'num', s:'120'}, {t:'punct', s:', '}, {t:'num', s:'120'}, {t:'punct', s:');'},
+          {t:'name', s:'ctx'}, {t:'punct', s:'.'}, {t:'prop', s:'fillStyle'}, {t:'punct', s:' = '}, {t:'str', s:'"#4ec9b0"'}, {t:'punct', s:';'},
+          {t:'name', s:'ctx'}, {t:'punct', s:'.'}, {t:'prop', s:'fillRect'}, {t:'punct', s:'('}, {t:'num', s:'140'}, {t:'punct', s:', '}, {t:'num', s:'90'}, {t:'punct', s:', '}, {t:'num', s:'120'}, {t:'punct', s:', '}, {t:'num', s:'120'}, {t:'punct', s:');'}
+        ],
+        codeHot: [1],
+        draw: (ctx) => {
+          clear(ctx);
+          ctx.globalAlpha = 0.5;
+          ctx.fillStyle = '#ff6b35';
+          ctx.fillRect(70, 40, 120, 120);
+          ctx.fillStyle = '#4ec9b0';
+          ctx.fillRect(140, 90, 120, 120);
+          ctx.globalAlpha = 1;
+        }
+      },
+      {
+        caption: "Linear gradients fade between colors along a line. Add color stops at positions 0 to 1.",
+        code: [
+          {t:'kw', s:'const '}, {t:'name', s:'g'}, {t:'punct', s:' = '}, {t:'name', s:'ctx'}, {t:'punct', s:'.'}, {t:'prop', s:'createLinearGradient'}, {t:'punct', s:'('}, {t:'num', s:'0'}, {t:'punct', s:', '}, {t:'num', s:'0'}, {t:'punct', s:', '}, {t:'num', s:'320'}, {t:'punct', s:', '}, {t:'num', s:'0'}, {t:'punct', s:');'},
+          {t:'name', s:'g'}, {t:'punct', s:'.'}, {t:'prop', s:'addColorStop'}, {t:'punct', s:'('}, {t:'num', s:'0'}, {t:'punct', s:', '}, {t:'str', s:'"#ff6b35"'}, {t:'punct', s:');'},
+          {t:'name', s:'g'}, {t:'punct', s:'.'}, {t:'prop', s:'addColorStop'}, {t:'punct', s:'('}, {t:'num', s:'1'}, {t:'punct', s:', '}, {t:'str', s:'"#6dafff"'}, {t:'punct', s:');'},
+          {t:'name', s:'ctx'}, {t:'punct', s:'.'}, {t:'prop', s:'fillStyle'}, {t:'punct', s:' = '}, {t:'name', s:'g'}, {t:'punct', s:';'},
+          {t:'name', s:'ctx'}, {t:'punct', s:'.'}, {t:'prop', s:'fillRect'}, {t:'punct', s:'('}, {t:'num', s:'30'}, {t:'punct', s:', '}, {t:'num', s:'60'}, {t:'punct', s:', '}, {t:'num', s:'260'}, {t:'punct', s:', '}, {t:'num', s:'120'}, {t:'punct', s:');'}
+        ],
+        codeHot: [0,1,2],
+        draw: (ctx) => {
+          clear(ctx);
+          const g = ctx.createLinearGradient(0, 0, 320, 0);
+          g.addColorStop(0, '#ff6b35');
+          g.addColorStop(1, '#6dafff');
+          ctx.fillStyle = g;
+          ctx.fillRect(30, 60, 260, 120);
+        }
+      },
+      {
+        caption: "Shadows add depth instantly. Set color, blur amount, and offset before drawing.",
+        code: [
+          {t:'name', s:'ctx'}, {t:'punct', s:'.'}, {t:'prop', s:'shadowColor'}, {t:'punct', s:' = '}, {t:'str', s:'"rgba(0,0,0,0.4)"'}, {t:'punct', s:';'},
+          {t:'name', s:'ctx'}, {t:'punct', s:'.'}, {t:'prop', s:'shadowBlur'}, {t:'punct', s:' = '}, {t:'num', s:'15'}, {t:'punct', s:';'},
+          {t:'name', s:'ctx'}, {t:'punct', s:'.'}, {t:'prop', s:'shadowOffsetX'}, {t:'punct', s:' = '}, {t:'num', s:'6'}, {t:'punct', s:';'},
+          {t:'name', s:'ctx'}, {t:'punct', s:'.'}, {t:'prop', s:'shadowOffsetY'}, {t:'punct', s:' = '}, {t:'num', s:'6'}, {t:'punct', s:';'},
+          {t:'name', s:'ctx'}, {t:'punct', s:'.'}, {t:'prop', s:'fillStyle'}, {t:'punct', s:' = '}, {t:'str', s:'"#ff6b35"'}, {t:'punct', s:';'},
+          {t:'name', s:'ctx'}, {t:'punct', s:'.'}, {t:'prop', s:'fillRect'}, {t:'punct', s:'('}, {t:'num', s:'80'}, {t:'punct', s:', '}, {t:'num', s:'60'}, {t:'punct', s:', '}, {t:'num', s:'160'}, {t:'punct', s:', '}, {t:'num', s:'120'}, {t:'punct', s:');'}
+        ],
+        codeHot: [0,1,2,3],
+        draw: (ctx) => {
+          clear(ctx);
+          ctx.shadowColor = 'rgba(0,0,0,0.4)';
+          ctx.shadowBlur = 15;
+          ctx.shadowOffsetX = 6;
+          ctx.shadowOffsetY = 6;
+          ctx.fillStyle = '#ff6b35';
+          ctx.fillRect(80, 60, 160, 120);
+          // reset
+          ctx.shadowColor = 'transparent';
+          ctx.shadowBlur = 0;
+          ctx.shadowOffsetX = 0;
+          ctx.shadowOffsetY = 0;
+        }
+      },
+      {
+        caption: "Line styles control how strokes are drawn — thickness, end caps, and how corners join.",
+        code: [
+          {t:'name', s:'ctx'}, {t:'punct', s:'.'}, {t:'prop', s:'lineWidth'}, {t:'punct', s:' = '}, {t:'num', s:'12'}, {t:'punct', s:';'},
+          {t:'name', s:'ctx'}, {t:'punct', s:'.'}, {t:'prop', s:'lineCap'}, {t:'punct', s:' = '}, {t:'str', s:'"round"'}, {t:'punct', s:';   '}, {t:'com', s:'// "butt" | "round" | "square"'},
+          {t:'name', s:'ctx'}, {t:'punct', s:'.'}, {t:'prop', s:'lineJoin'}, {t:'punct', s:' = '}, {t:'str', s:'"round"'}, {t:'punct', s:';  '}, {t:'com', s:'// "miter" | "round" | "bevel"'},
+          {t:'name', s:'ctx'}, {t:'punct', s:'.'}, {t:'prop', s:'setLineDash'}, {t:'punct', s:'(['}, {t:'num', s:'10'}, {t:'punct', s:', '}, {t:'num', s:'5'}, {t:'punct', s:']);'}
+        ],
+        codeHot: [1,2,3],
+        draw: (ctx) => {
+          clear(ctx);
+          ctx.strokeStyle = '#ff6b35';
+          ctx.lineWidth = 12;
+          ctx.lineCap = 'round';
+          ctx.lineJoin = 'round';
+          ctx.setLineDash([10, 5]);
+          ctx.beginPath();
+          ctx.moveTo(40, 180);
+          ctx.lineTo(160, 50);
+          ctx.lineTo(280, 180);
+          ctx.stroke();
+          ctx.setLineDash([]);
+        }
+      }
+    ]
+  },
+  // ------- 05 TEXT & IMAGE -------
+  {
+    name: "Text & Image",
+    steps: [
+      {
+        caption: "fillText draws text at a position. Set font using normal CSS font shorthand: size + family.",
+        code: [
+          {t:'name', s:'ctx'}, {t:'punct', s:'.'}, {t:'prop', s:'font'}, {t:'punct', s:' = '}, {t:'str', s:'"bold 36px serif"'}, {t:'punct', s:';'},
+          {t:'name', s:'ctx'}, {t:'punct', s:'.'}, {t:'prop', s:'fillStyle'}, {t:'punct', s:' = '}, {t:'str', s:'"#ff6b35"'}, {t:'punct', s:';'},
+          {t:'name', s:'ctx'}, {t:'punct', s:'.'}, {t:'prop', s:'fillText'}, {t:'punct', s:'('}, {t:'str', s:'"Hello!"'}, {t:'punct', s:', '}, {t:'num', s:'70'}, {t:'punct', s:', '}, {t:'num', s:'130'}, {t:'punct', s:');'}
+        ],
+        codeHot: [2],
+        draw: (ctx) => {
+          clear(ctx);
+          // baseline indicator
+          ctx.strokeStyle = 'rgba(255,107,53,0.3)';
+          ctx.setLineDash([2,3]);
+          ctx.beginPath();
+          ctx.moveTo(60, 130); ctx.lineTo(280, 130); ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.font = 'bold 36px serif';
+          ctx.fillStyle = '#ff6b35';
+          ctx.fillText('Hello!', 70, 130);
+          // baseline label
+          ctx.font = '9px JetBrains Mono, monospace';
+          ctx.fillStyle = 'rgba(0,0,0,0.5)';
+          ctx.fillText('baseline (y=130)', 70, 145);
+        }
+      },
+      {
+        caption: "textAlign and textBaseline control how text is positioned around its anchor point.",
+        code: [
+          {t:'name', s:'ctx'}, {t:'punct', s:'.'}, {t:'prop', s:'textAlign'}, {t:'punct', s:' = '}, {t:'str', s:'"center"'}, {t:'punct', s:';     '}, {t:'com', s:'// left|center|right'},
+          {t:'name', s:'ctx'}, {t:'punct', s:'.'}, {t:'prop', s:'textBaseline'}, {t:'punct', s:' = '}, {t:'str', s:'"middle"'}, {t:'punct', s:';  '}, {t:'com', s:'// top|middle|bottom'},
+          {t:'name', s:'ctx'}, {t:'punct', s:'.'}, {t:'prop', s:'fillText'}, {t:'punct', s:'('}, {t:'str', s:'"CENTER"'}, {t:'punct', s:', '}, {t:'num', s:'160'}, {t:'punct', s:', '}, {t:'num', s:'120'}, {t:'punct', s:');'}
+        ],
+        codeHot: [0,1],
+        draw: (ctx) => {
+          clear(ctx);
+          // crosshair at center
+          ctx.strokeStyle = 'rgba(255,107,53,0.4)';
+          ctx.setLineDash([3,3]);
+          ctx.beginPath();
+          ctx.moveTo(160, 30); ctx.lineTo(160, 210);
+          ctx.moveTo(30, 120); ctx.lineTo(290, 120);
+          ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.font = 'bold 36px serif';
+          ctx.fillStyle = '#ff6b35';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText('CENTER', 160, 120);
+          // anchor dot
+          ctx.fillStyle = 'red';
+          ctx.beginPath(); ctx.arc(160,120,3,0,Math.PI*2); ctx.fill();
+          // reset
+          ctx.textAlign = 'start';
+          ctx.textBaseline = 'alphabetic';
+        }
+      },
+      {
+        caption: "strokeText draws outlined text. Combine with fillText for two-tone effects.",
+        code: [
+          {t:'name', s:'ctx'}, {t:'punct', s:'.'}, {t:'prop', s:'font'}, {t:'punct', s:' = '}, {t:'str', s:'"bold 56px serif"'}, {t:'punct', s:';'},
+          {t:'name', s:'ctx'}, {t:'punct', s:'.'}, {t:'prop', s:'fillStyle'}, {t:'punct', s:' = '}, {t:'str', s:'"#ffd166"'}, {t:'punct', s:';'},
+          {t:'name', s:'ctx'}, {t:'punct', s:'.'}, {t:'prop', s:'fillText'}, {t:'punct', s:'('}, {t:'str', s:'"BOLD"'}, {t:'punct', s:', '}, {t:'num', s:'80'}, {t:'punct', s:', '}, {t:'num', s:'140'}, {t:'punct', s:');'},
+          {t:'name', s:'ctx'}, {t:'punct', s:'.'}, {t:'prop', s:'strokeStyle'}, {t:'punct', s:' = '}, {t:'str', s:'"#ff6b35"'}, {t:'punct', s:';'},
+          {t:'name', s:'ctx'}, {t:'punct', s:'.'}, {t:'prop', s:'lineWidth'}, {t:'punct', s:' = '}, {t:'num', s:'2'}, {t:'punct', s:';'},
+          {t:'name', s:'ctx'}, {t:'punct', s:'.'}, {t:'prop', s:'strokeText'}, {t:'punct', s:'('}, {t:'str', s:'"BOLD"'}, {t:'punct', s:', '}, {t:'num', s:'80'}, {t:'punct', s:', '}, {t:'num', s:'140'}, {t:'punct', s:');'}
+        ],
+        codeHot: [2,5],
+        draw: (ctx) => {
+          clear(ctx);
+          ctx.font = 'bold 56px serif';
+          ctx.fillStyle = '#ffd166';
+          ctx.fillText('BOLD', 80, 140);
+          ctx.strokeStyle = '#ff6b35';
+          ctx.lineWidth = 2;
+          ctx.strokeText('BOLD', 80, 140);
+        }
+      },
+      {
+        caption: "drawImage paints a real image onto the canvas. You can resize and crop it with extra arguments.",
+        code: [
+          {t:'kw', s:'const '}, {t:'name', s:'img'}, {t:'punct', s:' = '}, {t:'kw', s:'new '}, {t:'global', s:'Image'}, {t:'punct', s:'();'},
+          {t:'name', s:'img'}, {t:'punct', s:'.'}, {t:'prop', s:'src'}, {t:'punct', s:' = '}, {t:'str', s:'"sunset.jpg"'}, {t:'punct', s:';'},
+          {t:'name', s:'img'}, {t:'punct', s:'.'}, {t:'prop', s:'onload'}, {t:'punct', s:' = '}, {t:'punct', s:'() => '}, {t:'punct', s:'{'},
+          {t:'punct', s:'  '}, {t:'name', s:'ctx'}, {t:'punct', s:'.'}, {t:'prop', s:'drawImage'}, {t:'punct', s:'('}, {t:'name', s:'img'}, {t:'punct', s:', '}, {t:'num', s:'40'}, {t:'punct', s:', '}, {t:'num', s:'40'}, {t:'punct', s:', '}, {t:'num', s:'240'}, {t:'punct', s:', '}, {t:'num', s:'160'}, {t:'punct', s:');'},
+          {t:'punct', s:'};'}
+        ],
+        codeHot: [3],
+        draw: (ctx) => {
+          clear(ctx);
+          // Synthesize a "sunset" without external images
+          const w = 320, h = 240;
+          const sky = ctx.createLinearGradient(0, 40, 0, 200);
+          sky.addColorStop(0, '#ff6b35');
+          sky.addColorStop(0.5, '#ffd166');
+          sky.addColorStop(1, '#6dafff');
+          ctx.fillStyle = sky;
+          ctx.fillRect(40, 40, 240, 160);
+          // sun
+          ctx.fillStyle = '#fff8e0';
+          ctx.beginPath();
+          ctx.arc(160, 130, 28, 0, Math.PI * 2);
+          ctx.fill();
+          // hill silhouette
+          ctx.fillStyle = '#1a1410';
+          ctx.beginPath();
+          ctx.moveTo(40, 200);
+          ctx.lineTo(40, 170);
+          ctx.bezierCurveTo(100, 150, 150, 190, 200, 165);
+          ctx.bezierCurveTo(240, 150, 260, 175, 280, 170);
+          ctx.lineTo(280, 200);
+          ctx.closePath();
+          ctx.fill();
+          // frame
+          ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+          ctx.lineWidth = 1;
+          ctx.strokeRect(40, 40, 240, 160);
+        }
+      }
+    ]
+  },
+  // ------- 06 ANIMATION -------
+  {
+    name: "Animation",
+    steps: [
+      {
+        caption: "Animation = clear + redraw, on every frame. requestAnimationFrame schedules the next draw at ~60 fps.",
+        code: [
+          {t:'kw', s:'function '}, {t:'name', s:'frame'}, {t:'punct', s:'() {'},
+          {t:'punct', s:'  '}, {t:'name', s:'ctx'}, {t:'punct', s:'.'}, {t:'prop', s:'clearRect'}, {t:'punct', s:'('}, {t:'num', s:'0'}, {t:'punct', s:', '}, {t:'num', s:'0'}, {t:'punct', s:', '}, {t:'num', s:'320'}, {t:'punct', s:', '}, {t:'num', s:'240'}, {t:'punct', s:');'},
+          {t:'punct', s:'  '}, {t:'com', s:'// ...redraw everything in new positions'},
+          {t:'punct', s:'  '}, {t:'global', s:'requestAnimationFrame'}, {t:'punct', s:'('}, {t:'name', s:'frame'}, {t:'punct', s:');'},
+          {t:'punct', s:'}'},
+          {t:'name', s:'frame'}, {t:'punct', s:'();'}
+        ],
+        codeHot: [3],
+        animate: true,
+        draw: (ctx, t) => {
+          clear(ctx);
+          const x = 60 + ((t / 12) % 200);
+          ctx.fillStyle = '#ff6b35';
+          ctx.beginPath();
+          ctx.arc(x, 120, 18, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      },
+      {
+        caption: "Move things by changing position over time. Increment x each frame and the ball drifts.",
+        code: [
+          {t:'kw', s:'let '}, {t:'name', s:'x'}, {t:'punct', s:' = '}, {t:'num', s:'40'}, {t:'punct', s:';'},
+          {t:'kw', s:'function '}, {t:'name', s:'frame'}, {t:'punct', s:'() {'},
+          {t:'punct', s:'  '}, {t:'name', s:'ctx'}, {t:'punct', s:'.'}, {t:'prop', s:'clearRect'}, {t:'punct', s:'('}, {t:'num', s:'0'}, {t:'punct', s:', '}, {t:'num', s:'0'}, {t:'punct', s:', '}, {t:'num', s:'320'}, {t:'punct', s:', '}, {t:'num', s:'240'}, {t:'punct', s:');'},
+          {t:'punct', s:'  '}, {t:'name', s:'x'}, {t:'punct', s:' += '}, {t:'num', s:'2'}, {t:'punct', s:';        '}, {t:'com', s:'// move 2px per frame'},
+          {t:'punct', s:'  '}, {t:'name', s:'ctx'}, {t:'punct', s:'.'}, {t:'prop', s:'fillRect'}, {t:'punct', s:'('}, {t:'name', s:'x'}, {t:'punct', s:', '}, {t:'num', s:'100'}, {t:'punct', s:', '}, {t:'num', s:'40'}, {t:'punct', s:', '}, {t:'num', s:'40'}, {t:'punct', s:');'},
+          {t:'punct', s:'  '}, {t:'global', s:'requestAnimationFrame'}, {t:'punct', s:'('}, {t:'name', s:'frame'}, {t:'punct', s:');'},
+          {t:'punct', s:'}'}
+        ],
+        codeHot: [3],
+        animate: true,
+        draw: (ctx, t) => {
+          clear(ctx);
+          const x = 40 + ((t / 8) % 240);
+          ctx.fillStyle = '#4ec9b0';
+          ctx.fillRect(x, 100, 40, 40);
+        }
+      },
+      {
+        caption: "Bounce: when position hits a wall, flip the velocity. Now it ricochets between edges.",
+        code: [
+          {t:'kw', s:'let '}, {t:'name', s:'x'}, {t:'punct', s:' = '}, {t:'num', s:'40'}, {t:'punct', s:', '}, {t:'name', s:'vx'}, {t:'punct', s:' = '}, {t:'num', s:'3'}, {t:'punct', s:';'},
+          {t:'kw', s:'function '}, {t:'name', s:'frame'}, {t:'punct', s:'() {'},
+          {t:'punct', s:'  '}, {t:'name', s:'x'}, {t:'punct', s:' += '}, {t:'name', s:'vx'}, {t:'punct', s:';'},
+          {t:'punct', s:'  '}, {t:'kw', s:'if'}, {t:'punct', s:' ('}, {t:'name', s:'x'}, {t:'punct', s:' < '}, {t:'num', s:'20'}, {t:'punct', s:' || '}, {t:'name', s:'x'}, {t:'punct', s:' > '}, {t:'num', s:'300'}, {t:'punct', s:') '}, {t:'name', s:'vx'}, {t:'punct', s:' *= -'}, {t:'num', s:'1'}, {t:'punct', s:';'},
+          {t:'punct', s:'  '}, {t:'com', s:'// ...redraw'},
+          {t:'punct', s:'}'}
+        ],
+        codeHot: [3],
+        animate: true,
+        draw: (ctx, t) => {
+          clear(ctx);
+          // simulate bouncing
+          const period = 200;
+          const phase = (t / 6) % (period * 2);
+          const x = phase < period ? 30 + phase * 1.3 : 30 + (period * 2 - phase) * 1.3;
+          ctx.fillStyle = '#ff6b35';
+          ctx.beginPath();
+          ctx.arc(x, 120, 22, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      },
+      {
+        caption: "Use sin and cos for smooth oscillation. Math.sin gives values between -1 and 1, perfect for waves.",
+        code: [
+          {t:'kw', s:'let '}, {t:'name', s:'t'}, {t:'punct', s:' = '}, {t:'num', s:'0'}, {t:'punct', s:';'},
+          {t:'kw', s:'function '}, {t:'name', s:'frame'}, {t:'punct', s:'() {'},
+          {t:'punct', s:'  '}, {t:'name', s:'t'}, {t:'punct', s:' += '}, {t:'num', s:'0.05'}, {t:'punct', s:';'},
+          {t:'punct', s:'  '}, {t:'kw', s:'const '}, {t:'name', s:'y'}, {t:'punct', s:' = '}, {t:'num', s:'120'}, {t:'punct', s:' + '}, {t:'global', s:'Math'}, {t:'punct', s:'.'}, {t:'prop', s:'sin'}, {t:'punct', s:'('}, {t:'name', s:'t'}, {t:'punct', s:') * '}, {t:'num', s:'60'}, {t:'punct', s:';'},
+          {t:'punct', s:'  '}, {t:'com', s:'// draw circle at (160, y)'},
+          {t:'punct', s:'}'}
+        ],
+        codeHot: [3],
+        animate: true,
+        draw: (ctx, t) => {
+          clear(ctx);
+          const time = t / 200;
+          // wave path
+          ctx.strokeStyle = 'rgba(255,107,53,0.25)';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          for (let x = 0; x <= 320; x += 4) {
+            const y = 120 + Math.sin(x / 30 + time) * 60;
+            if (x === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+          }
+          ctx.stroke();
+          // ball
+          const bx = 160;
+          const by = 120 + Math.sin(bx / 30 + time) * 60;
+          ctx.fillStyle = '#ff6b35';
+          ctx.beginPath();
+          ctx.arc(bx, by, 14, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      },
+      {
+        caption: "Putting it together: draw a starfield, move every star a tiny bit each frame. The canvas comes alive.",
+        code: [
+          {t:'kw', s:'const '}, {t:'name', s:'stars'}, {t:'punct', s:' = '}, {t:'global', s:'Array'}, {t:'punct', s:'.'}, {t:'prop', s:'from'}, {t:'punct', s:'({ '}, {t:'prop', s:'length'}, {t:'punct', s:': '}, {t:'num', s:'40'}, {t:'punct', s:' }, () => ({'},
+          {t:'punct', s:'  '}, {t:'prop', s:'x'}, {t:'punct', s:': '}, {t:'global', s:'Math'}, {t:'punct', s:'.'}, {t:'prop', s:'random'}, {t:'punct', s:'() * '}, {t:'num', s:'320'}, {t:'punct', s:','},
+          {t:'punct', s:'  '}, {t:'prop', s:'y'}, {t:'punct', s:': '}, {t:'global', s:'Math'}, {t:'punct', s:'.'}, {t:'prop', s:'random'}, {t:'punct', s:'() * '}, {t:'num', s:'240'}, {t:'punct', s:','},
+          {t:'punct', s:'  '}, {t:'prop', s:'speed'}, {t:'punct', s:': '}, {t:'num', s:'0.5'}, {t:'punct', s:' + '}, {t:'global', s:'Math'}, {t:'punct', s:'.'}, {t:'prop', s:'random'}, {t:'punct', s:'() * '}, {t:'num', s:'2'},
+          {t:'punct', s:'}));'},
+          {t:'com', s:'// each frame: star.x -= star.speed; wrap to right edge'}
+        ],
+        codeHot: [5],
+        animate: true,
+        starfield: true,
+        draw: (ctx, t, state) => {
+          // black space
+          ctx.fillStyle = '#0d1117';
+          ctx.fillRect(0, 0, 320, 240);
+          // init stars on first frame
+          if (!state.stars) {
+            state.stars = Array.from({length: 50}, () => ({
+              x: Math.random() * 320,
+              y: Math.random() * 240,
+              r: 0.5 + Math.random() * 1.5,
+              speed: 0.3 + Math.random() * 1.8
+            }));
+          }
+          state.stars.forEach(s => {
+            s.x -= s.speed;
+            if (s.x < 0) { s.x = 320; s.y = Math.random() * 240; }
+            ctx.fillStyle = `rgba(255,209,102,${0.5 + s.r/3})`;
+            ctx.beginPath();
+            ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+            ctx.fill();
+            // trail
+            ctx.strokeStyle = `rgba(255,209,102,${0.15})`;
+            ctx.lineWidth = s.r;
+            ctx.beginPath();
+            ctx.moveTo(s.x, s.y);
+            ctx.lineTo(s.x + s.speed * 4, s.y);
+            ctx.stroke();
+          });
+        }
+      }
+    ]
+  }
+];
+
+// ============== STATE ==============
+let currentChapter = 0;
+let currentStep = 0;
+let animationId = null;
+let animationStart = 0;
+let animState = {};
+
+const $ = id => document.getElementById(id);
+const cv = $('cv');
+const ctx = cv.getContext('2d');
+
+function escapeHtml(s) {
+  return s.replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+}
+
+function renderCode(tokens, hotLines = []) {
+  let lines = [[]];
+  for (let i = 0; i < tokens.length; i++) {
+    lines[lines.length - 1].push(tokens[i]);
+    const tok = tokens[i];
+    const isComment = tok.t === 'com';
+    const trimmed = tok.s.trimEnd();
+    const endsWithSemi = trimmed.endsWith(';');
+    const endsWithBrace = trimmed === '}' || trimmed === '};' || trimmed === '});';
+    const endsWithCloseTag = trimmed.endsWith('>');
+    if (isComment || endsWithSemi || endsWithBrace || endsWithCloseTag) {
+      const next = tokens[i + 1];
+      if (next && next.t === 'com' && !isComment) continue;
+      lines.push([]);
+    }
+  }
+  if (lines[lines.length - 1].length === 0) lines.pop();
+
+  return lines.map((lineToks, idx) => {
+    const inner = lineToks.map(t => `<span class="${t.t}">${escapeHtml(t.s)}</span>`).join('');
+    const hotClass = hotLines.includes(idx) ? ' hot' : '';
+    return `<span class="line${hotClass}">${inner}</span>`;
+  }).join('');
+}
+
+function stopAnimation() {
+  if (animationId !== null) {
+    cancelAnimationFrame(animationId);
+    animationId = null;
+  }
+}
+
+function startAnimation(step) {
+  animationStart = performance.now();
+  animState = {};
+  function tick(now) {
+    const t = now - animationStart;
+    step.draw(ctx, t, animState);
+    animationId = requestAnimationFrame(tick);
+  }
+  animationId = requestAnimationFrame(tick);
+}
+
+function render() {
+  stopAnimation();
+
+  const ch = chapters[currentChapter];
+  const step = ch.steps[currentStep];
+
+  $('chapterNum').textContent = String(currentChapter + 1).padStart(2, '0');
+  $('chapterName').textContent = ch.name;
+
+  document.querySelectorAll('.tab').forEach((tab, i) => {
+    tab.classList.toggle('active', i === currentChapter);
+  });
+
+  $('caption').textContent = step.caption;
+  $('codePanel').innerHTML = renderCode(step.code, step.codeHot || []);
+
+  // Draw
+  if (step.animate) {
+    startAnimation(step);
+  } else {
+    step.draw(ctx);
+  }
+
+  const total = ch.steps.length;
+  $('stepCounter').textContent = `${String(currentStep + 1).padStart(2, '0')} / ${String(total).padStart(2, '0')}`;
+  $('progressBar').style.width = `${((currentStep + 1) / total) * 100}%`;
+
+  const isFirst = currentChapter === 0 && currentStep === 0;
+  const isLast = currentChapter === chapters.length - 1 && currentStep === total - 1;
+  $('prevBtn').disabled = isFirst;
+  $('nextBtn').disabled = isLast;
+}
+
+function next() {
+  const ch = chapters[currentChapter];
+  if (currentStep < ch.steps.length - 1) currentStep++;
+  else if (currentChapter < chapters.length - 1) { currentChapter++; currentStep = 0; }
+  render();
+}
+function prev() {
+  if (currentStep > 0) currentStep--;
+  else if (currentChapter > 0) { currentChapter--; currentStep = chapters[currentChapter].steps.length - 1; }
+  render();
+}
+function reset() { currentStep = 0; render(); }
+function goToChapter(i) { currentChapter = i; currentStep = 0; render(); }
+
+$('nextBtn').addEventListener('click', next);
+$('prevBtn').addEventListener('click', prev);
+$('resetBtn').addEventListener('click', reset);
+document.querySelectorAll('.tab').forEach((tab, i) => {
+  tab.addEventListener('click', () => goToChapter(i));
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'ArrowRight') { e.preventDefault(); next(); }
+  else if (e.key === 'ArrowLeft') { e.preventDefault(); prev(); }
+  else if (e.key === 'r' || e.key === 'R') { reset(); }
+  else if (e.key >= '1' && e.key <= '6') { goToChapter(parseInt(e.key) - 1); }
+});
+
+render();
+</script>
+</body>
+</html>
