@@ -1,5 +1,4 @@
 import { ReactNode } from 'react'
-import { slug as slugify } from 'github-slugger'
 import Image from '@/components/Image'
 import Bleed from 'pliny/ui/Bleed'
 import { CoreContent } from 'pliny/utils/contentlayer'
@@ -19,10 +18,9 @@ interface LayoutProps {
 }
 
 export default function PostMinimal({ content, next, prev, children }: LayoutProps) {
-  const { slug, title, images, category } = content
+  const { slug, title, images } = content
   const displayImage =
     images && images.length > 0 ? images[0] : 'https://picsum.photos/seed/picsum/800/400'
-  const categorySlug = category ? slugify(category) : null
 
   return (
     <SectionContainer>
@@ -37,17 +35,6 @@ export default function PostMinimal({ content, next, prev, children }: LayoutPro
                 </div>
               </Bleed>
             </div>
-            {category && categorySlug && (
-              <div className="pt-6">
-                <Link
-                  href={`/categories/${categorySlug}`}
-                  className="text-primary-500 hover:text-primary-600 dark:hover:text-primary-400 text-sm font-medium"
-                  aria-label={`Back to ${category} category`}
-                >
-                  &larr; Back to {category}
-                </Link>
-              </div>
-            )}
             <div className="relative pt-10">
               <PageTitle>{title}</PageTitle>
             </div>
