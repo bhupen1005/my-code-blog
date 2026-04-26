@@ -1,4 +1,5 @@
 import { ReactNode } from 'react'
+import { slug as slugify } from 'github-slugger'
 import { formatDate } from 'pliny/utils/formatDate'
 import { CoreContent } from 'pliny/utils/contentlayer'
 import type { Blog } from 'contentlayer/generated'
@@ -17,7 +18,8 @@ interface LayoutProps {
 }
 
 export default function PostLayout({ content, next, prev, children }: LayoutProps) {
-  const { path, slug, date, title } = content
+  const { slug, date, title, category } = content
+  const categorySlug = category ? slugify(category) : null
 
   return (
     <SectionContainer>
@@ -26,6 +28,17 @@ export default function PostLayout({ content, next, prev, children }: LayoutProp
         <div>
           <header>
             <div className="space-y-1 border-b border-gray-200 pb-10 text-center dark:border-gray-700">
+              {category && categorySlug && (
+                <div className="pb-2">
+                  <Link
+                    href={`/categories/${categorySlug}`}
+                    className="text-primary-500 hover:text-primary-600 dark:hover:text-primary-400 text-sm font-medium"
+                    aria-label={`Back to ${category} category`}
+                  >
+                    &larr; Back to {category}
+                  </Link>
+                </div>
+              )}
               <dl>
                 <div>
                   <dt className="sr-only">Published on</dt>

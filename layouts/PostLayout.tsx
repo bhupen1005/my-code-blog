@@ -1,4 +1,5 @@
 import { ReactNode } from 'react'
+import { slug as slugify } from 'github-slugger'
 import { CoreContent } from 'pliny/utils/contentlayer'
 import type { Blog, Authors } from 'contentlayer/generated'
 import Comments from '@/components/Comments'
@@ -30,8 +31,9 @@ interface LayoutProps {
 }
 
 export default function PostLayout({ content, authorDetails, next, prev, children }: LayoutProps) {
-  const { filePath, path, slug, date, title, tags } = content
+  const { filePath, path, slug, date, title, tags, category } = content
   const basePath = path.split('/')[0]
+  const categorySlug = category ? slugify(category) : null
 
   return (
     <SectionContainer>
@@ -39,6 +41,17 @@ export default function PostLayout({ content, authorDetails, next, prev, childre
       <article>
         <div className="xl:divide-y xl:divide-gray-200 xl:dark:divide-gray-700">
           <header className="pt-6 xl:pb-6">
+            {category && categorySlug && (
+              <div className="pb-4 text-center">
+                <Link
+                  href={`/categories/${categorySlug}`}
+                  className="text-primary-500 hover:text-primary-600 dark:hover:text-primary-400 text-sm font-medium"
+                  aria-label={`Back to ${category} category`}
+                >
+                  &larr; Back to {category}
+                </Link>
+              </div>
+            )}
             <div className="space-y-1 text-center">
               <dl className="space-y-10">
                 <div>
@@ -113,6 +126,16 @@ export default function PostLayout({ content, authorDetails, next, prev, childre
             </div>
             <footer>
               <div className="divide-gray-200 text-sm leading-5 font-medium xl:col-start-1 xl:row-start-2 xl:divide-y dark:divide-gray-700">
+                {category && categorySlug && (
+                  <div className="py-4 xl:py-8">
+                    <h2 className="text-xs tracking-wide text-gray-500 uppercase dark:text-gray-400">
+                      Category
+                    </h2>
+                    <div className="text-primary-500 hover:text-primary-600 dark:hover:text-primary-400">
+                      <Link href={`/categories/${categorySlug}`}>{category}</Link>
+                    </div>
+                  </div>
+                )}
                 {tags && (
                   <div className="py-4 xl:py-8">
                     <h2 className="text-xs tracking-wide text-gray-500 uppercase dark:text-gray-400">
