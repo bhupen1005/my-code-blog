@@ -67,6 +67,119 @@ function SearchBar() {
 </html>
 ```
 
+## SQL Sample Code
+
+```sql
+SELECT u.id, u.name, COUNT(o.id) AS order_count
+FROM users u
+LEFT JOIN orders o ON o.user_id = u.id
+WHERE u.created_at >= '2026-01-01'
+GROUP BY u.id, u.name
+HAVING COUNT(o.id) > 5
+ORDER BY order_count DESC
+LIMIT 10;
+```
+
+## Python Sample Code
+
+```python
+from functools import lru_cache
+
+@lru_cache(maxsize=None)
+def fibonacci(n: int) -> int:
+    if n < 2:
+        return n
+    return fibonacci(n - 1) + fibonacci(n - 2)
+
+if __name__ == "__main__":
+    for i in range(10):
+        print(f"fib({i}) = {fibonacci(i)}")
+```
+
+## Go Sample Code
+
+```go
+package main
+
+import (
+	"fmt"
+	"sync"
+)
+
+func main() {
+	var wg sync.WaitGroup
+	ch := make(chan int, 5)
+
+	for i := 1; i <= 5; i++ {
+		wg.Add(1)
+		go func(n int) {
+			defer wg.Done()
+			ch <- n * n
+		}(i)
+	}
+
+	wg.Wait()
+	close(ch)
+
+	for v := range ch {
+		fmt.Println(v)
+	}
+}
+```
+
+## Rust Sample Code
+
+```rust
+fn main() {
+    let numbers = vec![1, 2, 3, 4, 5];
+    let sum: i32 = numbers.iter().filter(|&&x| x % 2 == 0).sum();
+    println!("Sum of evens: {}", sum);
+}
+```
+
+## Bash Sample Code
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+
+for file in *.log; do
+  lines=$(wc -l < "$file")
+  echo "$file has $lines lines"
+done
+```
+
+## JSON Sample
+
+```json
+{
+  "name": "useDebounce",
+  "version": "1.0.0",
+  "keywords": ["react", "hooks", "debounce"],
+  "peerDependencies": {
+    "react": ">=17.0.0"
+  }
+}
+```
+
+## CSS Sample Code
+
+```css
+.search-input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.5rem;
+  transition: border-color 150ms ease-in-out;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+}
+```
+
 ## Why This Works
 
 The `useEffect` clears the previous timer every time `value` changes, so the API call only fires after the user pauses typing for 300ms.
