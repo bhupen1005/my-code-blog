@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SQL Joins — Step Through</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0f0e17;
+    --ink: #fffffe;
+    --dim: #a7a9be;
+    --accent: #ff8906;
+    --left-color: #3da9fc;
+    --right-color: #ef4565;
+    --null-color: #5f6c7b;
+    --grid: rgba(255, 255, 255, 0.06);
+  }
+
+  body {
+    background: var(--bg);
+    background-image:
+      linear-gradient(var(--grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+    background-size: 40px 40px;
+    color: var(--ink);
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    min-height: 100vh;
+    padding: 1.5rem 1rem;
+    overflow-x: hidden;
+  }
+
+  .container { max-width: 1200px; margin: 0 auto; }
+
+  header { text-align: center; margin-bottom: 1.5rem; }
+  h1 {
+    font-size: clamp(1.8rem, 4vw, 2.5rem);
+    font-weight: 900;
+    letter-spacing: -0.02em;
+  }
+  h1 .accent { color: var(--accent); }
+  .sub { color: var(--dim); font-size: 0.9rem; margin-top: 0.25rem; }
+
+  /* Join type pills */
+  .joins {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+  }
+  .pill {
+    padding: 0.6rem 1.1rem;
+    background: transparent;
+    color: var(--ink);
+    border: 1.5px solid var(--dim);
+    border-radius: 999px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 0.85rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    transition: all 0.2s;
+  }
+  .pill:hover { border-color: var(--accent); }
+  .pill.active {
+    background: var(--accent);
+    color: var(--bg);
+    border-color: var(--accent);
+  }
+
+  /* Step controls */
+  .step-controls {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 0.6rem;
+    margin-bottom: 0.5rem;
+    flex-wrap: wrap;
+  }
+  .ctrl-btn {
+    padding: 0.55rem 1.2rem;
+    background: var(--accent);
+    color: var(--bg);
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 0.9rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    transition: all 0.15s;
+  }
+  .ctrl-btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(255, 137, 6, 0.4); }
+  .ctrl-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+  .ctrl-btn.secondary {
+    background: transparent;
+    color: var(--ink);
+    border: 1px solid var(--dim);
+  }
+  .ctrl-btn.secondary:hover:not(:disabled) {
+    border-color: var(--accent);
+    color: var(--accent);
+    box-shadow: none;
+  }
+  .step-indicator {
+    color: var(--dim);
+    font-size: 0.8rem;
+    font-variant-numeric: tabular-nums;
+    min-width: 90px;
+    text-align: center;
+  }
+  .step-indicator strong { color: var(--accent); }
+
+  /* Stage */
+  .stage {
+    position: relative;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto auto;
+    gap: 1rem 2rem;
+    margin-bottom: 1rem;
+  }
+  @media (max-width: 700px) {
+    .stage { grid-template-columns: 1fr; gap: 1rem; }
+  }
+
+  .table-wrap { position: relative; }
+  .table-label {
+    font-size: 0.7rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    margin-bottom: 0.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+  }
+  .table-label .name { font-weight: 700; font-size: 0.9rem; letter-spacing: 0.05em; text-transform: lowercase; }
+  .left-color { color: var(--left-color); }
+  .right-color { color: var(--right-color); }
+
+  .tbl {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .tbl th {
+    text-align: left;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.7rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--dim);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    font-weight: 500;
+  }
+  .tbl td {
+    padding: 0.6rem 0.75rem;
+    font-size: 0.85rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  }
+  .tbl tr:last-child td { border-bottom: none; }
+  .tbl tr.source-row { transition: background 0.4s, opacity 0.4s, box-shadow 0.4s; }
+  .tbl tr.dim { opacity: 0.25; }
+  .tbl tr.left-glow { background: rgba(61, 169, 252, 0.22); box-shadow: inset 3px 0 0 var(--left-color); }
+  .tbl tr.right-glow { background: rgba(239, 69, 101, 0.22); box-shadow: inset 3px 0 0 var(--right-color); }
+  .tbl tr.match-glow { background: rgba(255, 137, 6, 0.28); box-shadow: inset 3px 0 0 var(--accent); }
+  .tbl tr.scanning {
+    animation: scan 1.2s ease-in-out infinite;
+  }
+  @keyframes scan {
+    0%, 100% { background: rgba(255, 255, 255, 0.04); }
+    50% { background: rgba(255, 137, 6, 0.15); }
+  }
+
+  /* Result table */
+  .result-wrap {
+    grid-column: span 2;
+    background: rgba(255, 137, 6, 0.05);
+    border: 1px solid rgba(255, 137, 6, 0.3);
+    border-radius: 6px;
+    padding: 1rem;
+    min-height: 120px;
+  }
+  @media (max-width: 700px) { .result-wrap { grid-column: span 1; } }
+
+  .result-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 0.5rem;
+  }
+  .result-header h3 {
+    font-size: 0.8rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+  .row-count {
+    font-size: 0.75rem;
+    color: var(--dim);
+    font-variant-numeric: tabular-nums;
+  }
+  .result-tbl { width: 100%; border-collapse: separate; border-spacing: 0; }
+  .result-tbl th {
+    text-align: left;
+    padding: 0.4rem 0.6rem;
+    font-size: 0.65rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--dim);
+    border-bottom: 1px dashed rgba(255, 137, 6, 0.4);
+  }
+  .result-tbl td {
+    padding: 0.5rem 0.6rem;
+    font-size: 0.85rem;
+    border-bottom: 1px dotted rgba(255, 255, 255, 0.05);
+  }
+  .result-tbl tr.from-left td { box-shadow: inset 3px 0 0 var(--left-color); }
+  .result-tbl tr.from-right td { box-shadow: inset -3px 0 0 var(--right-color); }
+  .result-tbl tr.from-both td {
+    box-shadow: inset 3px 0 0 var(--left-color), inset -3px 0 0 var(--right-color);
+  }
+  .result-tbl tr.just-added td {
+    animation: flashIn 0.6s ease-out;
+  }
+  @keyframes flashIn {
+    0% { background: rgba(255, 137, 6, 0.6); transform: translateY(-6px); opacity: 0; }
+    100% { background: transparent; transform: translateY(0); opacity: 1; }
+  }
+
+  .null { color: var(--null-color); font-style: italic; font-family: monospace; }
+
+  /* Status caption */
+  .caption {
+    text-align: center;
+    color: var(--ink);
+    font-size: 0.95rem;
+    margin: 1rem auto 0.5rem;
+    min-height: 2.5em;
+    max-width: 700px;
+    padding: 0.75rem 1rem;
+    background: rgba(255, 137, 6, 0.08);
+    border-left: 3px solid var(--accent);
+    border-radius: 4px;
+    transition: all 0.3s;
+  }
+  .caption strong { color: var(--accent); font-weight: 700; }
+  .caption .left-name { color: var(--left-color); font-weight: 700; }
+  .caption .right-name { color: var(--right-color); font-weight: 700; }
+  .caption .null-tag { color: var(--null-color); font-family: monospace; font-style: italic; }
+
+  /* SQL display */
+  .sql-display {
+    margin-top: 1rem;
+    padding: 1rem 1.25rem;
+    background: rgba(0, 0, 0, 0.4);
+    border-left: 3px solid var(--accent);
+    border-radius: 4px;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 0.85rem;
+    color: var(--ink);
+    white-space: pre;
+    overflow-x: auto;
+  }
+  .kw { color: var(--accent); font-weight: 700; }
+
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 1rem;
+    margin-top: 1rem;
+    font-size: 0.75rem;
+    color: var(--dim);
+  }
+  .legend-item { display: flex; align-items: center; gap: 0.4rem; }
+  .swatch { width: 10px; height: 10px; border-radius: 2px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>SQL <span class="accent">Joins</span> · step by step</h1>
+    <p class="sub">Pick a join, then click <strong>Next</strong> to advance one step at a time.</p>
+  </header>
+
+  <div class="joins" id="joins"></div>
+
+  <div class="step-controls">
+    <button class="ctrl-btn secondary" id="reset-btn">⟲ Reset</button>
+    <button class="ctrl-btn secondary" id="prev-btn">← Previous</button>
+    <span class="step-indicator" id="step-indicator">step <strong>0</strong> / 0</span>
+    <button class="ctrl-btn" id="next-btn">Next →</button>
+  </div>
+
+  <p class="caption" id="caption">Click <strong>Next</strong> to begin.</p>
+
+  <div class="stage">
+    <div class="table-wrap">
+      <div class="table-label">
+        <span class="name left-color">customers</span>
+        <span class="left-color">LEFT</span>
+      </div>
+      <table class="tbl">
+        <thead><tr><th>id</th><th>name</th></tr></thead>
+        <tbody id="customers-body"></tbody>
+      </table>
+    </div>
+
+    <div class="table-wrap">
+      <div class="table-label">
+        <span class="name right-color">orders</span>
+        <span class="right-color">RIGHT</span>
+      </div>
+      <table class="tbl">
+        <thead><tr><th>id</th><th>cust_id</th><th>item</th></tr></thead>
+        <tbody id="orders-body"></tbody>
+      </table>
+    </div>
+
+    <div class="result-wrap">
+      <div class="result-header">
+        <h3>↓ result set</h3>
+        <span class="row-count" id="row-count">0 rows</span>
+      </div>
+      <table class="result-tbl">
+        <thead><tr><th>name</th><th>item</th></tr></thead>
+        <tbody id="result-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <pre class="sql-display" id="sql-display"></pre>
+
+  <div class="legend">
+    <div class="legend-item"><div class="swatch" style="background:var(--left-color)"></div> from customers</div>
+    <div class="legend-item"><div class="swatch" style="background:var(--right-color)"></div> from orders</div>
+    <div class="legend-item"><div class="swatch" style="background:var(--accent)"></div> matched</div>
+    <div class="legend-item"><div class="swatch" style="background:var(--null-color)"></div> NULL fill</div>
+  </div>
+</div>
+
+<script>
+  const customers = [
+    { id: 1, name: "Ada" },
+    { id: 2, name: "Alan" },
+    { id: 3, name: "Grace" },
+    { id: 4, name: "Linus" },
+  ];
+
+  const orders = [
+    { id: 101, customer_id: 1, item: "Engine" },
+    { id: 102, customer_id: 1, item: "Cards" },
+    { id: 103, customer_id: 3, item: "Manual" },
+    { id: 104, customer_id: 5, item: "Mystery" },
+  ];
+
+  const joinMeta = {
+    INNER: { label: "INNER JOIN", sql: "INNER JOIN" },
+    LEFT:  { label: "LEFT JOIN",  sql: "LEFT JOIN" },
+    RIGHT: { label: "RIGHT JOIN", sql: "RIGHT JOIN" },
+    FULL:  { label: "FULL JOIN",  sql: "FULL OUTER JOIN" },
+  };
+
+  let currentJoin = "INNER";
+  let steps = [];        // array of step descriptors built when join changes
+  let currentStep = -1;  // -1 means "before first step"
+
+  /* ------------------------------------------------------------------
+     Build the list of steps for the current join.
+     Each step is an object the renderer can apply.
+     Step kinds:
+       - 'intro'        : show the question we're answering
+       - 'scan-customer': highlight a customer row, look for matches
+       - 'emit-match'   : emit a result row (both sides matched)
+       - 'emit-left-null': emit (customer, NULL)
+       - 'scan-orphans' : scan orders for unmatched ones
+       - 'emit-right-null': emit (NULL, order)
+       - 'done'         : final summary
+  ------------------------------------------------------------------ */
+  function buildSteps(joinType) {
+    const out = [];
+    out.push({ kind: "intro", joinType });
+
+    const matchedOrders = new Set();
+
+    customers.forEach(c => {
+      const matches = orders.filter(o => o.customer_id === c.id);
+      out.push({ kind: "scan-customer", customer: c, matchCount: matches.length });
+      if (matches.length > 0) {
+        matches.forEach(o => {
+          matchedOrders.add(o.id);
+          out.push({ kind: "emit-match", customer: c, order: o });
+        });
+      } else if (joinType === "LEFT" || joinType === "FULL") {
+        out.push({ kind: "emit-left-null", customer: c });
+      } else {
+        out.push({ kind: "drop-customer", customer: c });
+      }
+    });
+
+    if (joinType === "RIGHT" || joinType === "FULL") {
+      const orphans = orders.filter(o => !matchedOrders.has(o.id));
+      if (orphans.length > 0) {
+        out.push({ kind: "scan-orphans", orphans });
+        orphans.forEach(o => {
+          out.push({ kind: "emit-right-null", order: o });
+        });
+      }
+    } else {
+      // For INNER and LEFT, mention dropped orphan orders
+      const orphans = orders.filter(o => !matchedOrders.has(o.id));
+      if (orphans.length > 0) {
+        out.push({ kind: "drop-orphans", orphans });
+      }
+    }
+
+    out.push({ kind: "done" });
+    return out;
+  }
+
+  /* ------------------------------------------------------------------
+     Rendering helpers
+  ------------------------------------------------------------------ */
+  function renderSourceTables() {
+    const cBody = document.getElementById("customers-body");
+    const oBody = document.getElementById("orders-body");
+    cBody.innerHTML = "";
+    oBody.innerHTML = "";
+    customers.forEach(c => {
+      const tr = document.createElement("tr");
+      tr.className = "source-row";
+      tr.dataset.kind = "customer";
+      tr.dataset.id = c.id;
+      tr.innerHTML = `<td>${c.id}</td><td>${c.name}</td>`;
+      cBody.appendChild(tr);
+    });
+    orders.forEach(o => {
+      const tr = document.createElement("tr");
+      tr.className = "source-row";
+      tr.dataset.kind = "order";
+      tr.dataset.id = o.id;
+      tr.innerHTML = `<td>${o.id}</td><td>${o.customer_id}</td><td>${o.item}</td>`;
+      oBody.appendChild(tr);
+    });
+  }
+
+  function renderJoinButtons() {
+    const c = document.getElementById("joins");
+    c.innerHTML = "";
+    Object.entries(joinMeta).forEach(([key, j]) => {
+      const b = document.createElement("button");
+      b.className = "pill" + (key === currentJoin ? " active" : "");
+      b.textContent = j.label;
+      b.onclick = () => {
+        if (key !== currentJoin) {
+          currentJoin = key;
+          resetSteps();
+        }
+      };
+      c.appendChild(b);
+    });
+  }
+
+  function renderSQL() {
+    const j = joinMeta[currentJoin];
+    document.getElementById("sql-display").innerHTML =
+      `<span class="kw">SELECT</span> c.name, o.item\n` +
+      `<span class="kw">FROM</span> customers c\n` +
+      `<span class="kw">${j.sql}</span> orders o\n` +
+      `  <span class="kw">ON</span> c.id = o.customer_id;`;
+  }
+
+  function getCustomerRow(id) {
+    return document.querySelector(`#customers-body tr[data-id="${id}"]`);
+  }
+  function getOrderRow(id) {
+    return document.querySelector(`#orders-body tr[data-id="${id}"]`);
+  }
+
+  function clearAllRowStyles() {
+    document.querySelectorAll(".source-row").forEach(r => {
+      r.classList.remove("dim", "left-glow", "right-glow", "match-glow", "scanning");
+    });
+  }
+
+  function dimAll() {
+    document.querySelectorAll(".source-row").forEach(r => r.classList.add("dim"));
+  }
+
+  function setCaption(html) {
+    document.getElementById("caption").innerHTML = html;
+  }
+
+  function clearResult() {
+    document.getElementById("result-body").innerHTML = "";
+    document.getElementById("row-count").textContent = "0 rows";
+  }
+
+  function appendResultRow(customer, order, source) {
+    const tbody = document.getElementById("result-body");
+    // Remove "just-added" from any previous row
+    tbody.querySelectorAll(".just-added").forEach(t => t.classList.remove("just-added"));
+
+    const tr = document.createElement("tr");
+    tr.className = `from-${source} just-added`;
+    const nameCell = customer ? customer.name : '<span class="null">NULL</span>';
+    const itemCell = order ? order.item : '<span class="null">NULL</span>';
+    tr.innerHTML = `<td>${nameCell}</td><td>${itemCell}</td>`;
+    tbody.appendChild(tr);
+
+    document.getElementById("row-count").textContent =
+      tbody.children.length + " row" + (tbody.children.length === 1 ? "" : "s");
+  }
+
+  function popResultRow() {
+    const tbody = document.getElementById("result-body");
+    const last = tbody.lastElementChild;
+    if (last) last.remove();
+    const n = tbody.children.length;
+    document.getElementById("row-count").textContent = n + " row" + (n === 1 ? "" : "s");
+  }
+
+  /* ------------------------------------------------------------------
+     The core renderer: rebuild the world from currentStep.
+     This makes Previous/Reset trivial — we just replay forward to N.
+  ------------------------------------------------------------------ */
+  function renderFromScratch() {
+    clearAllRowStyles();
+    clearResult();
+
+    if (currentStep < 0) {
+      setCaption(`Click <strong>Next</strong> to begin.`);
+      return;
+    }
+
+    // Apply each step from 0..currentStep
+    for (let i = 0; i <= currentStep; i++) {
+      applyStep(steps[i], i === currentStep);
+    }
+  }
+
+  function applyStep(step, isCurrent) {
+    switch (step.kind) {
+      case "intro": {
+        if (isCurrent) {
+          dimAll();
+          const meta = joinMeta[step.joinType];
+          setCaption(
+            `Running <strong>${meta.label}</strong>. We'll walk through each row in <span class="left-name">customers</span> ` +
+            `and look for matches in <span class="right-name">orders</span> where <strong>c.id = o.customer_id</strong>.`
+          );
+        }
+        break;
+      }
+      case "scan-customer": {
+        const row = getCustomerRow(step.customer.id);
+        if (isCurrent) {
+          // Dim everything, then highlight just this customer with scanning effect
+          dimAll();
+          if (row) {
+            row.classList.remove("dim");
+            row.classList.add("scanning");
+          }
+          if (step.matchCount > 0) {
+            setCaption(
+              `Looking at <span class="left-name">${step.customer.name}</span> (id=${step.customer.id})… ` +
+              `<strong>${step.matchCount} match${step.matchCount === 1 ? "" : "es"}</strong> found in orders.`
+            );
+          } else {
+            setCaption(
+              `Looking at <span class="left-name">${step.customer.name}</span> (id=${step.customer.id})… ` +
+              `<strong>no matches</strong> in orders.`
+            );
+          }
+        }
+        break;
+      }
+      case "emit-match": {
+        const cRow = getCustomerRow(step.customer.id);
+        const oRow = getOrderRow(step.order.id);
+        if (cRow) { cRow.classList.remove("dim", "scanning"); cRow.classList.add("match-glow"); }
+        if (oRow) { oRow.classList.remove("dim", "scanning"); oRow.classList.add("match-glow"); }
+        appendResultRow(step.customer, step.order, "both");
+        if (isCurrent) {
+          setCaption(
+            `✓ Match emitted: <span class="left-name">${step.customer.name}</span> + ` +
+            `<span class="right-name">${step.order.item}</span>`
+          );
+        }
+        break;
+      }
+      case "emit-left-null": {
+        const cRow = getCustomerRow(step.customer.id);
+        if (cRow) { cRow.classList.remove("dim", "scanning"); cRow.classList.add("left-glow"); }
+        appendResultRow(step.customer, null, "left");
+        if (isCurrent) {
+          const j = joinMeta[currentJoin].label;
+          setCaption(
+            `<strong>${j}</strong> keeps <span class="left-name">${step.customer.name}</span> ` +
+            `even though there's no order — fills the right side with <span class="null-tag">NULL</span>.`
+          );
+        }
+        break;
+      }
+      case "drop-customer": {
+        if (isCurrent) {
+          const j = joinMeta[currentJoin].label;
+          setCaption(
+            `<strong>${j}</strong> drops <span class="left-name">${step.customer.name}</span> ` +
+            `(no matching order, so this row is excluded).`
+          );
+        }
+        break;
+      }
+      case "scan-orphans": {
+        if (isCurrent) {
+          dimAll();
+          step.orphans.forEach(o => {
+            const r = getOrderRow(o.id);
+            if (r) { r.classList.remove("dim"); r.classList.add("scanning"); }
+          });
+          setCaption(
+            `Now checking <span class="right-name">orders</span> for orphans — orders with no matching customer.`
+          );
+        }
+        break;
+      }
+      case "emit-right-null": {
+        const oRow = getOrderRow(step.order.id);
+        if (oRow) { oRow.classList.remove("dim", "scanning"); oRow.classList.add("right-glow"); }
+        appendResultRow(null, step.order, "right");
+        if (isCurrent) {
+          const j = joinMeta[currentJoin].label;
+          setCaption(
+            `<strong>${j}</strong> keeps orphan order <span class="right-name">${step.order.item}</span> ` +
+            `(cust_id=${step.order.customer_id} doesn't exist) — fills name with <span class="null-tag">NULL</span>.`
+          );
+        }
+        break;
+      }
+      case "drop-orphans": {
+        if (isCurrent) {
+          const names = step.orphans.map(o => `<span class="right-name">${o.item}</span>`).join(", ");
+          const j = joinMeta[currentJoin].label;
+          setCaption(`<strong>${j}</strong> drops orphan order(s): ${names} — no matching customer, excluded.`);
+        }
+        break;
+      }
+      case "done": {
+        if (isCurrent) {
+          clearAllRowStyles();
+          const n = document.getElementById("result-body").children.length;
+          setCaption(
+            `✦ Done. <strong>${joinMeta[currentJoin].label}</strong> produced <strong>${n}</strong> row${n === 1 ? "" : "s"}. ` +
+            `Try a different join above to compare.`
+          );
+        }
+        break;
+      }
+    }
+  }
+
+  /* ------------------------------------------------------------------
+     Step navigation
+  ------------------------------------------------------------------ */
+  function updateButtons() {
+    document.getElementById("prev-btn").disabled = currentStep < 0;
+    document.getElementById("next-btn").disabled = currentStep >= steps.length - 1;
+    const total = steps.length;
+    const shown = currentStep + 1;
+    document.getElementById("step-indicator").innerHTML = `step <strong>${shown}</strong> / ${total}`;
+  }
+
+  function next() {
+    if (currentStep < steps.length - 1) {
+      currentStep++;
+      renderFromScratch();
+      updateButtons();
+    }
+  }
+  function prev() {
+    if (currentStep >= 0) {
+      currentStep--;
+      renderFromScratch();
+      updateButtons();
+    }
+  }
+  function resetSteps() {
+    steps = buildSteps(currentJoin);
+    currentStep = -1;
+    renderJoinButtons();
+    renderSQL();
+    renderFromScratch();
+    updateButtons();
+  }
+
+  /* ------------------------------------------------------------------
+     Wire up
+  ------------------------------------------------------------------ */
+  document.getElementById("next-btn").onclick = next;
+  document.getElementById("prev-btn").onclick = prev;
+  document.getElementById("reset-btn").onclick = resetSteps;
+
+  // Keyboard shortcuts
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "ArrowRight" || e.key === " ") { e.preventDefault(); next(); }
+    if (e.key === "ArrowLeft") { e.preventDefault(); prev(); }
+    if (e.key === "r" || e.key === "R") { resetSteps(); }
+  });
+
+  // Init
+  renderSourceTables();
+  resetSteps();
+</script>
+</body>
+</html>

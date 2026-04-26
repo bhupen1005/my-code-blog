@@ -1,0 +1,165 @@
+---
+title: 'SQL Joins, Step by Step'
+date: 2026-04-26
+tags:
+  - sql
+  - databases
+  - tutorials
+  - joins
+summary: A walk-through of INNER, LEFT, RIGHT, and FULL OUTER joins using two small tables and a row-by-row trace. Includes an interactive stepper to watch each join build its result set one row at a time.
+---
+
+# SQL Joins, Step by Step
+
+Joins are where most SQL learners stall. The syntax is short, but the mental model — _which rows survive, which get NULLs, which get dropped_ — is the part that actually matters. Reading about joins rarely makes them click. **Watching them run does.**
+
+The interactive tool below is the heart of this tutorial. Everything else on this page is a guide to using it. If you only have a few minutes, scroll down, click **Next**, and step through all four joins in order — that single five-minute exercise is worth more than any explanation.
+
+## Try the Interactive Stepper First
+
+The following interactive tool demonstrates exactly how each join walks through rows, decides what to keep, and builds its result set. Pick a join type, then click **Next** to advance one step at a time. Arrow keys (`←` `→`) and `Space` work too.
+
+<iframe
+  name="sql-joins-stepper"
+  title="sql-joins-stepper — SQL Joins step-through visualization"
+  src="/static/sql-joins-stepper.html"
+  loading="lazy"
+  style={{
+    width: '100%',
+    height: '900px',
+    maxWidth: '100%',
+    border: '1px solid #2a2a3a',
+    borderRadius: '8px',
+    background: '#0f0e17',
+    display: 'block',
+  }}
+  allow="fullscreen"
+/>
+
+> **Strongly recommended:** step through all four joins (`INNER`, `LEFT`, `RIGHT`, `FULL`) before reading further. Each one only takes a few clicks. The differences are far easier to _see_ than to read about — and the rest of this tutorial assumes you've watched them run.
+
+## The Setup You Just Saw
+
+The stepper above uses two small tables: `customers` and `orders`. The relationship is simple — every order has a `customer_id` that _should_ point to a customer.
+
+**`customers`**
+
+| id  | name  |
+| --- | ----- |
+| 1   | Ada   |
+| 2   | Alan  |
+| 3   | Grace |
+| 4   | Linus |
+
+**`orders`**
+
+| id  | customer_id | item    |
+| --- | ----------- | ------- |
+| 101 | 1           | Engine  |
+| 102 | 1           | Cards   |
+| 103 | 3           | Manual  |
+| 104 | 5           | Mystery |
+
+Two asymmetries make this dataset interesting:
+
+- **Alan (id=2) and Linus (id=4)** have no orders. They exist on the left, alone.
+- **Order 104** points to `customer_id=5`, but no such customer exists. It's an orphan on the right.
+
+If every customer had exactly one order and every order pointed to a real customer, all four joins would return identical row sets — and nobody would need this tutorial. The whole point of the four variants is what they do with these unmatched rows.
+
+## How Each Join Behaves
+
+As you step through each join in the tool above, here's what's happening under the hood. Run them in order — the differences are easier to feel when you compare consecutive joins.
+
+### INNER JOIN — only matches survive
+
+```sql
+SELECT c.name, o.item
+FROM customers c
+INNER JOIN orders o
+  ON c.id = o.customer_id;
+```
+
+The engine walks every customer, looks for matching orders, and emits a row only when it finds one. Alan and Linus get **dropped** because they have no orders. Order 104 gets **dropped** because there's no customer 5.
+
+Result: 3 rows — `Ada/Engine`, `Ada/Cards`, `Grace/Manual`.
+
+This is the strictest join. Use it when you only care about records that exist on **both** sides. _Try selecting INNER JOIN in the stepper above and watch how cleanly the unmatched rows fade out._
+
+### LEFT JOIN — keep every customer
+
+```sql
+SELECT c.name, o.item
+FROM customers c
+LEFT JOIN orders o
+  ON c.id = o.customer_id;
+```
+
+Same as `INNER`, plus this rule: if a customer has no matching order, **keep the customer anyway and fill the right side with NULL**. Alan and Linus reappear, each paired with `NULL` for `item`. Order 104 is still dropped — `LEFT` doesn't care about orphans on the right.
+
+Result: 5 rows.
+
+This is the join you want when you're asking _"give me every customer, and their orders if any."_ The left table is the source of truth; the right table is supplementary.
+
+### RIGHT JOIN — keep every order
+
+```sql
+SELECT c.name, o.item
+FROM customers c
+RIGHT JOIN orders o
+  ON c.id = o.customer_id;
+```
+
+The mirror image of `LEFT`. Every order survives, even orphan order 104, which gets `NULL` for `name`. Alan and Linus are dropped because `RIGHT` doesn't preserve unmatched left-side rows.
+
+Result: 4 rows.
+
+`RIGHT JOIN` is genuinely uncommon in practice — most engineers swap the table order and use `LEFT` instead, since it reads more naturally. But it's still worth understanding when reading other people's SQL. _Switch the stepper above to RIGHT JOIN and notice how it's the mirror of LEFT._
+
+### FULL OUTER JOIN — keep everything
+
+```sql
+SELECT c.name, o.item
+FROM customers c
+FULL OUTER JOIN orders o
+  ON c.id = o.customer_id;
+```
+
+Every customer and every order shows up, with `NULL` filling in wherever a side has no match. Alan, Linus, **and** the mystery orphan order all appear.
+
+Result: 6 rows.
+
+Use `FULL OUTER` when you genuinely need to see both sides of the gap — typically for data reconciliation, auditing, or finding mismatches between two systems that should agree but don't.
+
+## A Mental Shortcut
+
+Once you've stepped through all four in the tool above, the pattern compresses into one sentence:
+
+> A join's name tells you which side's unmatched rows get to stay.
+
+- **INNER** — neither side; only matches.
+- **LEFT** — left side's unmatched rows stay (with NULLs on the right).
+- **RIGHT** — right side's unmatched rows stay (with NULLs on the left).
+- **FULL** — both sides' unmatched rows stay.
+
+The matched rows are identical across all four. The only thing that changes is what happens to the leftovers.
+
+## Where Joins Bite People in Production
+
+A few patterns worth internalizing once the basics click:
+
+- **Filtering on the right side of a `LEFT JOIN`** in the `WHERE` clause silently converts it back into an `INNER JOIN`. If you write `LEFT JOIN orders o ON c.id = o.customer_id WHERE o.status = 'shipped'`, the `WHERE o.status = 'shipped'` filter discards the NULL rows you were trying to keep. Move the predicate into the `ON` clause instead.
+- **Counting with joins** is treacherous. `COUNT(*)` after a join counts result rows, not source rows. If a customer has three orders, `COUNT(*)` will count that customer three times. Use `COUNT(DISTINCT c.id)` when you mean "how many customers."
+- **Multi-table joins** compound NULLs. A `LEFT JOIN` followed by an `INNER JOIN` on a column that might be NULL will quietly drop the rows you preserved a step earlier.
+- **The `USING` clause** is a shorthand worth knowing: `JOIN orders USING (customer_id)` is equivalent to `ON c.customer_id = o.customer_id` when both columns share a name. It also collapses the joined column into one in the result.
+
+## Where to Go Next
+
+Once joins feel natural, the next layers are worth exploring in roughly this order:
+
+1. **Self-joins** — joining a table to itself, useful for hierarchical data like employee/manager relationships.
+2. **`CROSS JOIN`** — the Cartesian product, no `ON` clause, every row paired with every row. Rare but occasionally exactly what you need for combinatorial generation.
+3. **Anti-joins and semi-joins** — using `NOT EXISTS` or `LEFT JOIN ... WHERE right.id IS NULL` to find rows in one table with no counterpart in another. The orphan-detection pattern in disguise.
+4. **Window functions** — once you can join, learning `ROW_NUMBER()`, `LAG()`, and `PARTITION BY` opens up analytical SQL that would otherwise require self-joins or correlated subqueries.
+
+Before you move on: scroll back up and run through the stepper one more time, this time predicting each result before clicking **Next**. When you can call every row correctly without checking, joins have stopped being syntax you memorize and started being something you reason from. That's the milestone worth hitting.
