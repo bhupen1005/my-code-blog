@@ -2,38 +2,42 @@ import { slug } from 'github-slugger'
 import { allCoreContent, sortPosts } from 'pliny/utils/contentlayer'
 import ListLayout from '@/layouts/ListLayoutWithTags'
 import { allBlogs } from 'contentlayer/generated'
-import tagData from 'app/tag-data.json'
+import categoryData from 'app/category-data.json'
 import { notFound } from 'next/navigation'
 
 const POSTS_PER_PAGE = 5
 
 export const generateStaticParams = async () => {
-  const tagCounts = tagData as Record<string, number>
-  return Object.keys(tagCounts).flatMap((tag) => {
-    const postCount = tagCounts[tag]
-    const totalPages = Math.max(1, Math.ceil(postCount / POSTS_PER_PAGE))
+  const categories = categoryData as Record<string, { name: string; count: number }>
+  return Object.keys(categories).flatMap((catSlug) => {
+    const totalPages = Math.max(1, Math.ceil(categories[catSlug].count / POSTS_PER_PAGE))
     return Array.from({ length: totalPages }, (_, i) => ({
-      tag: encodeURI(tag),
+      category: encodeURI(catSlug),
       page: (i + 1).toString(),
     }))
   })
 }
 
-export default async function TagPage(props: { params: Promise<{ tag: string; page: string }> }) {
+export default async function CategoryPaginatedPage(props: {
+  params: Promise<{ category: string; page: string }>
+}) {
   const params = await props.params
-  const tag = decodeURI(params.tag)
-  const title = tag[0].toUpperCase() + tag.split(' ').join('-').slice(1)
+  const catSlug = decodeURI(params.category)
+  const categories = categoryData as Record<string, { name: string; count: number }>
+  const display = categories[catSlug]?.name
+  if (!display) return notFound()
+
   const pageNumber = parseInt(params.page)
   const allSortedPosts = allCoreContent(sortPosts(allBlogs))
   const filteredPosts = allSortedPosts.filter(
-    (post) => post.tags && post.tags.map((t) => slug(t)).includes(tag)
+    (post) => post.category && slug(post.category) === catSlug
   )
   const totalPages = Math.ceil(filteredPosts.length / POSTS_PER_PAGE)
 
-  // Return 404 for invalid page numbers or empty pages
   if (pageNumber <= 0 || pageNumber > totalPages || isNaN(pageNumber)) {
     return notFound()
   }
+
   const initialDisplayPosts = filteredPosts.slice(
     POSTS_PER_PAGE * (pageNumber - 1),
     POSTS_PER_PAGE * pageNumber
@@ -49,7 +53,7 @@ export default async function TagPage(props: { params: Promise<{ tag: string; pa
       allPosts={allSortedPosts}
       initialDisplayPosts={initialDisplayPosts}
       pagination={pagination}
-      title={title}
+      title={display}
     />
   )
 }

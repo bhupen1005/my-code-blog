@@ -3,44 +3,46 @@ import { allCoreContent, sortPosts } from 'pliny/utils/contentlayer'
 import siteMetadata from '@/data/siteMetadata'
 import ListLayout from '@/layouts/ListLayoutWithTags'
 import { allBlogs } from 'contentlayer/generated'
-import tagData from 'app/tag-data.json'
+import categoryData from 'app/category-data.json'
 import { genPageMetadata } from 'app/seo'
 import { Metadata } from 'next'
+import { notFound } from 'next/navigation'
 
 const POSTS_PER_PAGE = 5
 
 export async function generateMetadata(props: {
-  params: Promise<{ tag: string }>
+  params: Promise<{ category: string }>
 }): Promise<Metadata> {
   const params = await props.params
-  const tag = decodeURI(params.tag)
+  const categories = categoryData as Record<string, { name: string; count: number }>
+  const catSlug = decodeURI(params.category)
+  const display = categories[catSlug]?.name ?? catSlug
   return genPageMetadata({
-    title: tag,
-    description: `${siteMetadata.title} ${tag} tagged content`,
+    title: display,
+    description: `${siteMetadata.title} ${display} category`,
     alternates: {
       canonical: './',
-      types: {
-        'application/rss+xml': `${siteMetadata.siteUrl}/tags/${tag}/feed.xml`,
-      },
     },
   })
 }
 
 export const generateStaticParams = async () => {
-  const tagCounts = tagData as Record<string, number>
-  const tagKeys = Object.keys(tagCounts)
-  return tagKeys.map((tag) => ({
-    tag: encodeURI(tag),
+  const categories = categoryData as Record<string, { name: string; count: number }>
+  return Object.keys(categories).map((catSlug) => ({
+    category: encodeURI(catSlug),
   }))
 }
 
-export default async function TagPage(props: { params: Promise<{ tag: string }> }) {
+export default async function CategoryPage(props: { params: Promise<{ category: string }> }) {
   const params = await props.params
-  const tag = decodeURI(params.tag)
-  const title = tag[0].toUpperCase() + tag.split(' ').join('-').slice(1)
+  const catSlug = decodeURI(params.category)
+  const categories = categoryData as Record<string, { name: string; count: number }>
+  const display = categories[catSlug]?.name
+  if (!display) return notFound()
+
   const allSortedPosts = allCoreContent(sortPosts(allBlogs))
   const filteredPosts = allSortedPosts.filter(
-    (post) => post.tags && post.tags.map((t) => slug(t)).includes(tag)
+    (post) => post.category && slug(post.category) === catSlug
   )
   const totalPages = Math.ceil(filteredPosts.length / POSTS_PER_PAGE)
   const initialDisplayPosts = filteredPosts.slice(0, POSTS_PER_PAGE)
@@ -55,7 +57,7 @@ export default async function TagPage(props: { params: Promise<{ tag: string }> 
       allPosts={allSortedPosts}
       initialDisplayPosts={initialDisplayPosts}
       pagination={pagination}
-      title={title}
+      title={display}
     />
   )
 }

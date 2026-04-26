@@ -3,10 +3,16 @@ import Tag from '@/components/Tag'
 import siteMetadata from '@/data/siteMetadata'
 import { formatDate } from 'pliny/utils/formatDate'
 import NewsletterForm from 'pliny/ui/NewsletterForm'
+import categoryData from 'app/category-data.json'
 
 const MAX_DISPLAY = 5
 
 export default function Home({ posts }) {
+  const categories = categoryData as Record<string, { name: string; count: number }>
+  const sortedCategorySlugs = Object.keys(categories).sort(
+    (a, b) => categories[b].count - categories[a].count
+  )
+
   return (
     <>
       <div className="divide-y divide-gray-200 dark:divide-gray-700">
@@ -18,6 +24,34 @@ export default function Home({ posts }) {
             {siteMetadata.description}
           </p>
         </div>
+        {sortedCategorySlugs.length > 0 && (
+          <div className="py-8">
+            <h2 className="mb-4 text-2xl leading-8 font-bold tracking-tight text-gray-900 dark:text-gray-100">
+              Browse by category
+            </h2>
+            <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+              {sortedCategorySlugs.map((catSlug) => {
+                const cat = categories[catSlug]
+                return (
+                  <li key={catSlug}>
+                    <Link
+                      href={`/categories/${catSlug}`}
+                      className="hover:border-primary-500 hover:text-primary-500 dark:hover:border-primary-500 dark:hover:text-primary-500 group block rounded-md border border-gray-200 bg-gray-50 px-4 py-5 text-center transition-colors dark:border-gray-700 dark:bg-gray-900/50"
+                      aria-label={`View posts in ${cat.name} category`}
+                    >
+                      <div className="text-base font-bold text-gray-900 group-hover:text-inherit dark:text-gray-100">
+                        {cat.name}
+                      </div>
+                      <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                        {cat.count} {cat.count === 1 ? 'post' : 'posts'}
+                      </div>
+                    </Link>
+                  </li>
+                )
+              })}
+            </ul>
+          </div>
+        )}
         <ul className="divide-y divide-gray-200 dark:divide-gray-700">
           {!posts.length && 'No posts found.'}
           {posts.slice(0, MAX_DISPLAY).map((post) => {
